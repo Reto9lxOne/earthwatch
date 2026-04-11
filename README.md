@@ -27,10 +27,10 @@ Live planet dashboard — real-time natural events, earthquakes, air quality, so
 
 ### 1. VM Setup (Ubuntu 24.04)
 ```bash
-# On fresh VM at 10.75.40.13
+# On fresh VM
 sudo ./setup.sh
 # Re-login after setup (docker group)
-exit && ssh localadmin@10.75.40.13
+exit && ssh 
 ```
 
 ### 2. Clone repo
@@ -80,7 +80,7 @@ To get your Chat ID:
 
 ### 5. SSL Certificates
 ```bash
-# Copy your *.9lx.io wildcard cert
+# Copy your wildcard cert
 cp /opt/nginx/ssl/fullchain.pem /opt/earthwatch/nginx/ssl/
 cp /opt/nginx/ssl/privkey.pem   /opt/earthwatch/nginx/ssl/
 ```
@@ -150,12 +150,9 @@ Configured alerts:
 
 | Resource | Value |
 |---|---|
-| Hostname | prd-eaw01.srv.9lx.io |
 | vCPU | 4 |
 | RAM | 4 GB |
 | Disk | 200 GB |
-| IP | 10.75.40.13 |
-| VLAN | VLAN40 / SERVER |
 | OS | Ubuntu 24.04 LTS |
 
 ## Directory Structure
