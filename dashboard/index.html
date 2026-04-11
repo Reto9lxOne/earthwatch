@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EARTHWATCH — Live Planet Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root {
+  --bg: #03060F;
+  --surface: #080D1C;
+  --border: #162035;
+  --border2: #1E2E48;
+  --text: #C8D8F0;
+  --muted: #3D5270;
+  --bright: #FFFFFF;
+  --eonet:  #FF6B35;
+  --quake:  #FF2D55;
+  --flight: #00E5FF;
+  --air:    #A8FF3E;
+  --solar:  #FFD60A;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  height: 100vh;
+  overflow: hidden;
+}
+
+body::after {
+  content:'';
+  position:fixed; inset:0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  pointer-events:none; z-index:9999;
+}
+
+.app { display:grid; grid-template-rows:56px 1fr; height:100vh; }
+
+/* ── HEADER ─────────────────────────────── */
+header {
+  background: rgba(3,6,15,0.97);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 16px;
+  z-index: 1000;
+  flex-wrap: wrap;
+}
+
+.brand { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.brand-orb {
+  width:30px; height:30px; border-radius:50%;
+  background: conic-gradient(from 0deg, var(--eonet), var(--quake), var(--flight), var(--air), var(--solar), var(--eonet));
+  animation: spin 6s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.brand h1 { font-size:15px; font-weight:900; letter-spacing:0.15em; color:var(--bright); }
+.brand sub { font-family:'DM Mono',monospace; font-size:8px; color:var(--muted); letter-spacing:0.2em; display:block; }
+
+.layer-bar { display:flex; gap:6px; flex:1; overflow-x:auto; scrollbar-width:none; }
+.layer-bar::-webkit-scrollbar { display:none; }
+
+.layer-btn {
+  display:flex; align-items:center; gap:6px;
+  padding:5px 12px;
+  border-radius:6px; border:1px solid var(--border2);
+  background:transparent; color:var(--muted);
+  font-family:'Outfit',sans-serif; font-size:11px; font-weight:600;
+  cursor:pointer; transition:all 0.2s; white-space:nowrap;
+}
+.layer-btn .lbullet { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.layer-btn .lspinner { width:8px; height:8px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.2); border-top-color:currentColor; animation:spin 0.7s linear infinite; display:none; }
+.layer-btn.loading .lspinner { display:block; }
+.layer-btn.loading .lbullet  { display:none; }
+.layer-btn.active { color:var(--bright); }
+.layer-btn.active[data-layer="eonet"]  { background:rgba(255,107,53,0.15); border-color:rgba(255,107,53,0.4); }
+.layer-btn.active[data-layer="quake"]  { background:rgba(255,45,85,0.15);  border-color:rgba(255,45,85,0.4); }
+.layer-btn.active[data-layer="flight"] { background:rgba(0,229,255,0.1);   border-color:rgba(0,229,255,0.35); }
+.layer-btn.active[data-layer="solar"]  { background:rgba(255,214,10,0.12); border-color:rgba(255,214,10,0.4); }
+.layer-count { font-family:'DM Mono',monospace; font-size:9px; padding:1px 5px; border-radius:4px; background:rgba(255,255,255,0.06); }
+
+.header-right { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+.clock { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); }
+
+/* Grafana link */
+.grafana-link {
+  display:flex; align-items:center; gap:6px;
+  padding:5px 12px; border-radius:6px;
+  border:1px solid rgba(255,214,10,0.3);
+  background:rgba(255,214,10,0.08);
+  color:var(--solar); font-size:11px; font-weight:600;
+  text-decoration:none; white-space:nowrap;
+  transition:all 0.2s;
+}
+.grafana-link:hover { background:rgba(255,214,10,0.15); }
+
+/* ── MAIN ────────────────────────────────── */
+.main { display:grid; grid-template-columns:1fr 300px; overflow:hidden; }
+
+/* ── MAP ─────────────────────────────────── */
+.map-wrap { position:relative; overflow:hidden; }
+#map { width:100%; height:100%; }
+.leaflet-container { background:#03060F; }
+
+.map-wrap::before {
+  content:''; position:absolute; inset:0; z-index:400; pointer-events:none;
+  background:
+    linear-gradient(to right, rgba(3,6,15,0.4) 0%, transparent 5%, transparent 95%, rgba(3,6,15,0.4) 100%),
+    linear-gradient(to bottom, rgba(3,6,15,0.3) 0%, transparent 4%, transparent 96%, rgba(3,6,15,0.3) 100%);
+}
+
+#map-overlay {
+  position:absolute; inset:0; z-index:600;
+  display:flex; align-items:center; justify-content:center;
+  background:rgba(3,6,15,0.7); backdrop-filter:blur(4px);
+  transition:opacity 0.4s; pointer-events:none;
+}
+#map-overlay.hidden { opacity:0; }
+.big-spinner {
+  width:48px; height:48px; border-radius:50%;
+  border:3px solid var(--border2); border-top-color:var(--flight);
+  animation:spin 0.9s linear infinite;
+}
+
+.map-popup {
+  position:absolute; z-index:700;
+  background:rgba(3,6,15,0.96); border:1px solid var(--border2);
+  border-radius:10px; padding:12px 14px;
+  pointer-events:none; max-width:260px;
+  backdrop-filter:blur(10px); display:none;
+}
+.map-popup.show { display:block; }
+.map-popup h4 { font-size:13px; font-weight:700; margin-bottom:6px; line-height:1.3; }
+.map-popup-meta { font-family:'DM Mono',monospace; font-size:10px; color:var(--muted); display:flex; flex-direction:column; gap:3px; }
+
+/* ── SIDEBAR ─────────────────────────────── */
+.sidebar {
+  background:var(--surface); border-left:1px solid var(--border);
+  display:flex; flex-direction:column; overflow:hidden;
+}
+
+.stats-strip {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:1px; background:var(--border); border-bottom:1px solid var(--border);
+  flex-shrink:0;
+}
+.stat-box { background:var(--surface); padding:10px 12px; }
+.stat-box .val { font-size:20px; font-weight:800; line-height:1; }
+.stat-box .lbl { font-size:9px; font-weight:600; letter-spacing:0.15em; text-transform:uppercase; color:var(--muted); margin-top:3px; }
+
+.feed-header {
+  padding:10px 14px 6px;
+  display:flex; align-items:center; justify-content:space-between;
+  border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.feed-title { font-size:10px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); }
+.feed-filter { display:flex; gap:4px; }
+.feed-filter-btn {
+  background:none; border:1px solid var(--border2); border-radius:5px; padding:3px 8px;
+  font-family:'Outfit',sans-serif; font-size:9px; font-weight:600;
+  color:var(--muted); cursor:pointer; transition:all 0.15s;
+}
+.feed-filter-btn.active { background:var(--border2); color:var(--text); }
+
+.feed { flex:1; overflow-y:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+
+.feed-item {
+  display:flex; align-items:flex-start; gap:10px;
+  padding:10px 14px; border-bottom:1px solid rgba(22,32,53,0.6);
+  cursor:pointer; transition:background 0.15s;
+}
+.feed-item:hover { background:rgba(255,255,255,0.02); }
+.feed-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:4px; }
+.feed-dot.pulse { animation:fdpulse 2s ease-in-out infinite; }
+@keyframes fdpulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.feed-item-body { flex:1; min-width:0; }
+.feed-item-title { font-size:12px; font-weight:600; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.feed-item-sub { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; }
+.feed-badge { font-size:8px; font-weight:700; letter-spacing:0.06em; padding:2px 5px; border-radius:3px; text-transform:uppercase; }
+
+/* Solar panel */
+.solar-panel { border-top:1px solid var(--border); padding:10px 14px; flex-shrink:0; }
+.solar-title { font-size:9px; font-weight:700; letter-spacing:0.18em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+.solar-events { display:flex; flex-direction:column; gap:5px; }
+.solar-event {
+  display:flex; align-items:center; gap:8px;
+  background:rgba(255,214,10,0.06); border:1px solid rgba(255,214,10,0.15);
+  border-radius:6px; padding:6px 8px;
+}
+.solar-icon { font-size:14px; flex-shrink:0; }
+.solar-body { flex:1; min-width:0; }
+.solar-type { font-size:11px; font-weight:600; color:var(--solar); }
+.solar-date { font-family:'DM Mono',monospace; font-size:9px; color:var(--muted); }
+.solar-empty { font-size:11px; color:var(--muted); font-style:italic; }
+
+/* Skeleton */
+.skel {
+  background:linear-gradient(90deg, var(--border) 25%, rgba(255,255,255,0.04) 50%, var(--border) 75%);
+  background-size:200% 100%; animation:shimmer 1.5s infinite; border-radius:4px;
+}
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+</style>
+</head>
+<body>
+<div class="app">
+
+<header>
+  <div class="brand">
+    <div class="brand-orb"></div>
+    <div>
+      <h1>EARTHWATCH</h1>
+      <sub>LIVE PLANET DASHBOARD</sub>
+    </div>
+  </div>
+
+  <div class="layer-bar">
+    <button class="layer-btn active" data-layer="eonet">
+      <div class="lbullet" style="background:var(--eonet)"></div>
+      <div class="lspinner"></div>
+      &#127755; Natural Events
+      <span class="layer-count" id="cnt-eonet">—</span>
+    </button>
+    <button class="layer-btn active" data-layer="quake">
+      <div class="lbullet" style="background:var(--quake)"></div>
+      <div class="lspinner"></div>
+      &#128308; Earthquakes
+      <span class="layer-count" id="cnt-quake">—</span>
+    </button>
+    <button class="layer-btn active" data-layer="flight">
+      <div class="lbullet" style="background:var(--flight)"></div>
+      <div class="lspinner"></div>
+      &#9992; Flights
+      <span class="layer-count" id="cnt-flight">—</span>
+    </button>
+    <button class="layer-btn active" data-layer="solar">
+      <div class="lbullet" style="background:var(--solar)"></div>
+      <div class="lspinner"></div>
+      &#9728; Solar Activity
+      <span class="layer-count" id="cnt-solar">—</span>
+    </button>
+  </div>
+
+  <div class="header-right">
+    <a class="grafana-link" href="https://grafana.9lx.io" target="_blank">&#128200; Grafana</a>
+    <div class="clock" id="clock">—</div>
+  </div>
+</header>
+
+<div class="main">
+  <div class="map-wrap">
+    <div id="map"></div>
+    <div id="map-overlay"><div class="big-spinner"></div></div>
+    <div class="map-popup" id="popup">
+      <h4 id="popup-title">—</h4>
+      <div class="map-popup-meta" id="popup-meta"></div>
+    </div>
+  </div>
+
+  <aside class="sidebar">
+    <div class="stats-strip">
+      <div class="stat-box">
+        <div class="val" style="color:var(--eonet)" id="s-events">—</div>
+        <div class="lbl">Natural Events</div>
+      </div>
+      <div class="stat-box">
+        <div class="val" style="color:var(--quake)" id="s-quakes">—</div>
+        <div class="lbl">Earthquakes 24h</div>
+      </div>
+      <div class="stat-box">
+        <div class="val" style="color:var(--flight)" id="s-flights">—</div>
+        <div class="lbl">Flights Live</div>
+      </div>
+      <div class="stat-box">
+        <div class="val" style="color:var(--solar)" id="s-solar">—</div>
+        <div class="lbl">Solar Events 7d</div>
+      </div>
+    </div>
+
+    <div class="feed-header">
+      <span class="feed-title">Live Feed</span>
+      <div class="feed-filter">
+        <button class="feed-filter-btn active" data-filter="all">All</button>
+        <button class="feed-filter-btn" data-filter="eonet">&#127755;</button>
+        <button class="feed-filter-btn" data-filter="quake">&#128308;</button>
+        <button class="feed-filter-btn" data-filter="flight">&#9992;</button>
+      </div>
+    </div>
+
+    <div class="feed" id="feed">
+      <div class="feed-item"><div class="feed-dot" style="background:var(--border2)"></div><div class="feed-item-body"><div class="skel" style="width:80%;height:11px;margin-bottom:6px"></div><div class="skel" style="width:50%;height:8px"></div></div></div>
+      <div class="feed-item"><div class="feed-dot" style="background:var(--border2)"></div><div class="feed-item-body"><div class="skel" style="width:65%;height:11px;margin-bottom:6px"></div><div class="skel" style="width:40%;height:8px"></div></div></div>
+      <div class="feed-item"><div class="feed-dot" style="background:var(--border2)"></div><div class="feed-item-body"><div class="skel" style="width:75%;height:11px;margin-bottom:6px"></div><div class="skel" style="width:55%;height:8px"></div></div></div>
+    </div>
+
+    <div class="solar-panel">
+      <div class="solar-title">&#9728; Solar / Space Weather</div>
+      <div class="solar-events" id="solar-events">
+        <div class="solar-empty">Loading solar data...</div>
+      </div>
+    </div>
+  </aside>
+</div>
+</div>
+
+<script>
+// ── CONFIG ───────────────────────────────────────────────
+// When served via nginx on earthwatch.9lx.io, flights come from internal proxy
+// For local development, falls back to direct API
+const ADSB_URL = window.location.hostname === 'localhost'
+  ? 'https://corsproxy.io/?url=http://api.airplanes.live/v2/point/47/8/2000'
+  : '/api/adsb/';
+
+const COLORS = {
+  eonet:  '#FF6B35',
+  quake:  '#FF2D55',
+  flight: '#00E5FF',
+  solar:  '#FFD60A',
+};
+
+const NASA_KEY = 'DEMO_KEY'; // Solar events only — low rate limit ok
+
+// ── STATE ────────────────────────────────────────────────
+const state = {
+  layers:   { eonet:true, quake:true, flight:true, solar:true },
+  markers:  { eonet:[], quake:[], flight:[] },
+  feedItems: [],
+  feedFilter: 'all',
+};
+
+// ── MAP ──────────────────────────────────────────────────
+const map = L.map('map', { center:[20,0], zoom:2, zoomControl:false });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', {
+  attribution:'&copy; OpenStreetMap &copy; CARTO',
+  subdomains:'abcd', maxZoom:19
+}).addTo(map);
+L.control.zoom({ position:'bottomright' }).addTo(map);
+
+function hideMapLoader() {
+  document.getElementById('map-overlay').classList.add('hidden');
+}
+
+// ── HELPERS ──────────────────────────────────────────────
+function fmtDate(ts) {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+
+function hexRgb(hex) {
+  return [1,3,5].map(i => parseInt(hex.slice(i,i+2),16)).join(',');
+}
+
+function clearLayer(layer) {
+  state.markers[layer].forEach(m => m.remove());
+  state.markers[layer] = [];
+}
+
+function addFeedItem(layer, title, sub, lat, lng) {
+  state.feedItems.unshift({ layer, title, sub, lat, lng, ts: Date.now() });
+  if (state.feedItems.length > 200) state.feedItems.pop();
+}
+
+function showPopup(x, y, title, metaLines) {
+  const p = document.getElementById('popup');
+  document.getElementById('popup-title').textContent = title;
+  document.getElementById('popup-meta').innerHTML = metaLines.map(l=>`<span>${l}</span>`).join('');
+  p.style.left = (x+12)+'px';
+  p.style.top  = (y-10)+'px';
+  p.classList.add('show');
+}
+function hidePopup() { document.getElementById('popup').classList.remove('show'); }
+map.on('click', hidePopup);
+
+function flyTo(lat, lng, zoom=5) {
+  map.flyTo([lat,lng], zoom, { duration:1.2 });
+}
+
+// ── LAYER TOGGLE ─────────────────────────────────────────
+document.querySelectorAll('.layer-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const l = btn.dataset.layer;
+    if (l === 'solar') return;
+    state.layers[l] = !state.layers[l];
+    btn.classList.toggle('active', state.layers[l]);
+    state.markers[l]?.forEach(m => {
+      if (state.layers[l]) m.addTo(map); else m.remove();
+    });
+  });
+});
+
+// ── FEED ─────────────────────────────────────────────────
+function renderFeed() {
+  const f = state.feedFilter;
+  const items = f === 'all' ? state.feedItems : state.feedItems.filter(i => i.layer === f);
+  const feed = document.getElementById('feed');
+  const layerEmoji = { eonet:'&#127755;', quake:'&#128308;', flight:'&#9992;' };
+
+  if (!items.length) {
+    feed.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);font-size:12px;">No items yet...</div>`;
+    return;
+  }
+
+  feed.innerHTML = items.slice(0,80).map(item => {
+    const color = COLORS[item.layer] || '#7B61FF';
+    return `<div class="feed-item" onclick="flyTo(${item.lat},${item.lng})">
+      <div class="feed-dot pulse" style="background:${color}"></div>
+      <div class="feed-item-body">
+        <div class="feed-item-title">${item.title}</div>
+        <div class="feed-item-sub">
+          <span>${item.sub}</span>
+          <span class="feed-badge" style="background:${color}22;color:${color}">${layerEmoji[item.layer] || ''} ${item.layer.toUpperCase()}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.querySelectorAll('.feed-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.feed-filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.feedFilter = btn.dataset.filter;
+    renderFeed();
+  });
+});
+
+// ── 1. EONET ─────────────────────────────────────────────
+const EONET_CATS = {
+  wildfires:    { icon:'&#128293;', color:'#FF6B35' },
+  severeStorms: { icon:'&#127786;', color:'#00BFFF' },
+  volcanoes:    { icon:'&#127755;', color:'#FF4500' },
+  seaLakeIce:   { icon:'&#129510;', color:'#87CEEB' },
+  drought:      { icon:'&#9728;',   color:'#DAA520' },
+};
+function eonetCat(cats) {
+  if (!cats?.length) return { icon:'&#9889;', color:'#7B61FF' };
+  return EONET_CATS[cats[0].id] || { icon:'&#9889;', color:'#7B61FF' };
+}
+
+async function loadEonet() {
+  const btn = document.querySelector('[data-layer="eonet"]');
+  btn.classList.add('loading');
+  try {
+    const r = await fetch('https://eonet.gsfc.nasa.gov/api/v3/events?limit=200&days=30&status=open');
+    const d = await r.json();
+    const events = d.events || [];
+    document.getElementById('cnt-eonet').textContent = events.length;
+    document.getElementById('s-events').textContent  = events.length;
+    clearLayer('eonet');
+
+    events.forEach(ev => {
+      const geo = ev.geometry;
+      if (!geo?.length) return;
+      const [lng, lat] = geo[geo.length-1].coordinates;
+      const cat = eonetCat(ev.categories);
+      const date = geo[geo.length-1].date;
+
+      const icon = L.divIcon({
+        html:`<div style="width:24px;height:24px;border-radius:50%;background:${cat.color};display:flex;align-items:center;justify-content:center;font-size:11px;box-shadow:0 0 0 2px rgba(0,0,0,0.4),0 0 8px ${cat.color}66;cursor:pointer;">${cat.icon}</div>`,
+        className:'', iconSize:[24,24], iconAnchor:[12,12],
+      });
+
+      const m = L.marker([lat,lng], { icon });
+      m.on('mouseover', e => showPopup(e.originalEvent.clientX, e.originalEvent.clientY, ev.title, [
+        `&#128197; ${fmtDate(date)}`,
+        `&#128205; ${lat.toFixed(2)}, ${lng.toFixed(2)}`,
+        `&#127991; ${ev.categories?.[0]?.title || 'Event'}`,
+      ]));
+      m.on('mouseout', hidePopup);
+      m.on('click', () => flyTo(lat, lng, 6));
+      if (state.layers.eonet) m.addTo(map);
+      state.markers.eonet.push(m);
+      addFeedItem('eonet', ev.title, fmtDate(date), lat, lng);
+    });
+    renderFeed();
+  } catch(e) { console.warn('EONET failed:', e); }
+  btn.classList.remove('loading');
+}
+
+// ── 2. USGS Earthquakes ──────────────────────────────────
+function quakeColor(mag) {
+  if (mag >= 7) return '#FF0040';
+  if (mag >= 6) return '#FF2D55';
+  if (mag >= 5) return '#FF6060';
+  if (mag >= 4) return '#FF9500';
+  return '#FFD60A';
+}
+
+async function loadQuakes() {
+  const btn = document.querySelector('[data-layer="quake"]');
+  btn.classList.add('loading');
+  try {
+    const r = await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
+    const d = await r.json();
+    const features = d.features || [];
+    document.getElementById('cnt-quake').textContent = features.length;
+    document.getElementById('s-quakes').textContent  = features.length;
+    clearLayer('quake');
+
+    features.forEach(f => {
+      const [lng, lat] = f.geometry.coordinates;
+      const mag   = f.properties.mag;
+      const place = f.properties.place || 'Unknown';
+      const color = quakeColor(mag);
+      const size  = Math.max(10, Math.min(36, mag * 5));
+
+      const icon = L.divIcon({
+        html:`<div style="width:${size}px;height:${size}px;border-radius:50%;background:${color}33;border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:${Math.max(8,size*0.35)}px;color:${color};font-weight:700;box-shadow:0 0 12px ${color}66;cursor:pointer;">M${mag?.toFixed(1)||'?'}</div>`,
+        className:'', iconSize:[size,size], iconAnchor:[size/2,size/2],
+      });
+
+      const m = L.marker([lat,lng], { icon });
+      m.on('mouseover', e => showPopup(e.originalEvent.clientX, e.originalEvent.clientY, `M${mag?.toFixed(1)} — ${place}`, [
+        `&#128197; ${fmtDate(f.properties.time)}`,
+        `&#127754; Tsunami: ${f.properties.tsunami ? '&#9888; Yes' : 'No'}`,
+        `&#128205; ${lat.toFixed(2)}, ${lng.toFixed(2)}`,
+        `&#9889; Significance: ${f.properties.sig}`,
+      ]));
+      m.on('mouseout', hidePopup);
+      m.on('click', () => flyTo(lat, lng, 7));
+      if (state.layers.quake) m.addTo(map);
+      state.markers.quake.push(m);
+      addFeedItem('quake', `M${mag?.toFixed(1)} — ${place}`, fmtDate(f.properties.time), lat, lng);
+    });
+    renderFeed();
+  } catch(e) { console.warn('USGS failed:', e); }
+  btn.classList.remove('loading');
+}
+
+// ── 3. Flights via internal proxy ────────────────────────
+async function loadFlights() {
+  const btn = document.querySelector('[data-layer="flight"]');
+  btn.classList.add('loading');
+  try {
+    const r = await fetch(ADSB_URL);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const aircraft = (d.ac || []).filter(a => a.lat && a.lon);
+
+    document.getElementById('cnt-flight').textContent = aircraft.length;
+    document.getElementById('s-flights').textContent  = aircraft.length;
+    clearLayer('flight');
+    btn.style.opacity = '1';
+
+    aircraft.slice(0, 500).forEach(a => {
+      const lat = a.lat, lng = a.lon;
+      const hdg   = a.track || 0;
+      const cs    = a.flight?.trim() || a.r || a.hex || '?';
+      const altFt = a.alt_baro && a.alt_baro !== 'ground' ? Math.round(a.alt_baro) : null;
+      const spdKt = a.gs ? Math.round(a.gs) : null;
+      const type  = a.t || '—';
+
+      const icon = L.divIcon({
+        html:`<div style="width:16px;height:16px;display:flex;align-items:center;justify-content:center;transform:rotate(${hdg}deg);color:#00E5FF;font-size:11px;line-height:1;filter:drop-shadow(0 0 3px #00E5FF99);cursor:pointer;">&#9992;</div>`,
+        className:'', iconSize:[16,16], iconAnchor:[8,8],
+      });
+
+      const m = L.marker([lat, lng], { icon });
+      m.on('mouseover', e => showPopup(e.originalEvent.clientX, e.originalEvent.clientY, `&#9992; ${cs}`, [
+        `&#128745; Type: ${type}`,
+        `&#128316; Altitude: ${altFt ? altFt+' ft' : 'Ground'}`,
+        `&#128168; Speed: ${spdKt ? spdKt+' kts' : '—'}`,
+        `&#129517; Heading: ${Math.round(hdg)}°`,
+        `&#128205; ${lat.toFixed(2)}, ${lng.toFixed(2)}`,
+      ]));
+      m.on('mouseout', hidePopup);
+      m.on('click', () => flyTo(lat, lng, 8));
+      if (state.layers.flight) m.addTo(map);
+      state.markers.flight.push(m);
+      addFeedItem('flight', cs, `${type} · ${altFt ? altFt+'ft' : 'Ground'} · ${spdKt ? spdKt+'kts' : '—'}`, lat, lng);
+    });
+    renderFeed();
+  } catch(e) {
+    console.warn('Flights failed:', e);
+    document.getElementById('cnt-flight').textContent = '—';
+    document.getElementById('s-flights').textContent  = '—';
+    btn.style.opacity = '0.45';
+    btn.classList.remove('active');
+    state.layers.flight = false;
+    state.feedItems = state.feedItems.filter(i => i.layer !== 'flight');
+    renderFeed();
+  }
+  btn.classList.remove('loading');
+}
+
+// ── 4. NASA DONKI Solar ──────────────────────────────────
+const SOLAR_TYPES = {
+  CME: { icon:'&#9728;',  label:'Coronal Mass Ejection' },
+  FLR: { icon:'&#9889;',  label:'Solar Flare' },
+  SEP: { icon:'&#9762;',  label:'Solar Energetic Particle' },
+  GST: { icon:'&#127759;',label:'Geomagnetic Storm' },
+};
+
+async function loadSolar() {
+  const btn = document.querySelector('[data-layer="solar"]');
+  btn.classList.add('loading');
+  try {
+    const end   = new Date().toISOString().slice(0,10);
+    const start = new Date(Date.now() - 7*864e5).toISOString().slice(0,10);
+    const types = ['CME','FLR','GST','SEP'];
+    const results = [];
+
+    for (const t of types) {
+      try {
+        const r = await fetch(`https://api.nasa.gov/DONKI/${t}?startDate=${start}&endDate=${end}&api_key=${NASA_KEY}`);
+        const d = await r.json();
+        if (Array.isArray(d)) d.slice(0,3).forEach(ev => results.push({ type:t, ...ev }));
+        await new Promise(r => setTimeout(r, 500));
+      } catch {}
+    }
+
+    results.sort((a,b) => new Date(b.beginTime||b.startTime||0) - new Date(a.beginTime||a.startTime||0));
+    document.getElementById('cnt-solar').textContent = results.length;
+    document.getElementById('s-solar').textContent   = results.length;
+
+    const panel = document.getElementById('solar-events');
+    if (!results.length) {
+      panel.innerHTML = '<div class="solar-empty">No solar events in last 7 days</div>';
+      btn.classList.remove('loading');
+      return;
+    }
+
+    panel.innerHTML = results.slice(0,4).map(ev => {
+      const t  = SOLAR_TYPES[ev.type] || { icon:'&#9889;', label:ev.type };
+      const dt = fmtDate(new Date(ev.beginTime||ev.startTime||ev.eventTime));
+      const classStr = ev.classType ? ` · Class ${ev.classType}` : '';
+      const kp = ev.allKpIndex?.length ? ` · Kp${ev.allKpIndex[0].kpIndex}` : '';
+      return `<div class="solar-event">
+        <div class="solar-icon">${t.icon}</div>
+        <div class="solar-body">
+          <div class="solar-type">${t.label}${classStr}${kp}</div>
+          <div class="solar-date">${dt}</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) { console.warn('DONKI failed:', e); }
+  btn.classList.remove('loading');
+}
+
+// ── CLOCK ────────────────────────────────────────────────
+function updateClock() {
+  document.getElementById('clock').textContent =
+    new Date().toUTCString().slice(17,25) + ' UTC';
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── INIT ─────────────────────────────────────────────────
+async function init() {
+  await Promise.all([ loadEonet(), loadQuakes(), loadSolar() ]);
+  await loadFlights();
+  hideMapLoader();
+}
+
+init();
+
+// Auto-refresh
+setInterval(loadFlights, 120000);
+setInterval(loadQuakes,  300000);
+setInterval(loadEonet,   300000);
+</script>
+</body>
+</html>
