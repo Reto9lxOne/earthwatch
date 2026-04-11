@@ -7,8 +7,8 @@ Live planet dashboard — real-time natural events, earthquakes, air quality, so
 | Service | Description | URL |
 |---|---|---|
 | **nginx** | Reverse proxy + static files | — |
-| **earthwatch-ui** | Live map dashboard | https://earthwatch.9lx.ch |
-| **grafana** | Analytics + Alerts | https://grafana.9lx.ch |
+| **earthwatch-ui** | Live map dashboard | https://earthwatch.9lx.io |
+| **grafana** | Analytics + Alerts | https://grafana.9lx.io |
 | **collector** | API poller → TimescaleDB | internal |
 | **proxy** | ADSB CORS proxy | internal |
 | **timescaledb** | Time-series database | internal |
@@ -80,7 +80,7 @@ To get your Chat ID:
 
 ### 5. SSL Certificates
 ```bash
-# Copy your *.9lx.ch wildcard cert
+# Copy your *.9lx.io wildcard cert
 cp /opt/nginx/ssl/fullchain.pem /opt/earthwatch/nginx/ssl/
 cp /opt/nginx/ssl/privkey.pem   /opt/earthwatch/nginx/ssl/
 ```
