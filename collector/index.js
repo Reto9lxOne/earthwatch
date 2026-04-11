@@ -111,7 +111,7 @@ async function collectAirQuality() {
   const start = Date.now();
   try {
     const data = await safeFetch(
-      'https://api.openaq.org/v2/latest?limit=200&parameter=pm25&has_geo=true&order_by=lastUpdated&sort=desc'
+      'https://api.openaq.org/v3/measurements?limit=200&parameters_id=2&has_geo=true&order_by=datetime&sort=desc'
     );
     const results = data.results || [];
     let inserted = 0;
