@@ -1,0 +1,227 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Earthwatch Alerts
+    folder: Earthwatch
+    interval: 5m
+    rules:
+
+      # ── Strong Earthquake Alert ──────────────────────────
+      - uid: alert-earthquake-strong
+        title: "🔴 Strong Earthquake M5.0+"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: timescaledb
+            model:
+              rawSql: |
+                SELECT
+                  time AS "time",
+                  magnitude,
+                  place
+                FROM earthquakes
+                WHERE $__timeFilter(time)
+                  AND magnitude >= 5.0
+                ORDER BY time DESC
+                LIMIT 1
+              format: table
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              reducer: last
+              expression: A
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        annotations:
+          summary: "Earthquake M{{ $values.A.magnitude }} near {{ $values.A.place }}"
+          description: "A strong earthquake was detected. Check earthwatch.9lx.ch for details."
+        labels:
+          severity: critical
+          category: earthquake
+        isPaused: false
+
+      # ── Major Earthquake Alert ───────────────────────────
+      - uid: alert-earthquake-major
+        title: "🚨 Major Earthquake M7.0+"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: timescaledb
+            model:
+              rawSql: |
+                SELECT COUNT(*) AS count
+                FROM earthquakes
+                WHERE $__timeFilter(time)
+                  AND magnitude >= 7.0
+              format: table
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - type: query
+                  params: [A]
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last }
+                  evaluator: { type: gt, params: [0] }
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        annotations:
+          summary: "MAJOR earthquake M7.0+ detected!"
+          description: "A major earthquake was recorded. Tsunami risk possible."
+        labels:
+          severity: critical
+          category: earthquake
+        isPaused: false
+
+      # ── Tsunami Warning ──────────────────────────────────
+      - uid: alert-tsunami
+        title: "🌊 Tsunami Warning"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: timescaledb
+            model:
+              rawSql: |
+                SELECT COUNT(*) AS count
+                FROM earthquakes
+                WHERE $__timeFilter(time)
+                  AND tsunami = true
+              format: table
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last }
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        annotations:
+          summary: "Tsunami warning issued!"
+          description: "A tsunami-generating earthquake was detected."
+        labels:
+          severity: critical
+          category: tsunami
+        isPaused: false
+
+      # ── Poor Air Quality Alert ───────────────────────────
+      - uid: alert-air-quality-poor
+        title: "💨 Poor Air Quality PM2.5 > 55"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: timescaledb
+            model:
+              rawSql: |
+                SELECT COUNT(*) AS count
+                FROM air_quality
+                WHERE $__timeFilter(time)
+                  AND parameter = 'pm25'
+                  AND value > 55
+              format: table
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [5] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last }
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 15m
+        annotations:
+          summary: "Poor air quality detected at multiple stations"
+          description: "More than 5 stations report PM2.5 > 55 µg/m³ (Unhealthy level)"
+        labels:
+          severity: warning
+          category: air_quality
+        isPaused: false
+
+      # ── Solar Storm Alert ────────────────────────────────
+      - uid: alert-solar-storm
+        title: "☀️ Geomagnetic Storm Kp5+"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: timescaledb
+            model:
+              rawSql: |
+                SELECT COUNT(*) AS count
+                FROM solar_events
+                WHERE $__timeFilter(time)
+                  AND event_type = 'GST'
+                  AND kp_index >= 5
+              format: table
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last }
+                  type: query
+        noDataState: OK
+        execErrState: Error
+        for: 0m
+        annotations:
+          summary: "Geomagnetic storm Kp{{ $values.A }} detected"
+          description: "Strong solar activity may affect GPS, radio communications and power grids."
+        labels:
+          severity: warning
+          category: solar
+        isPaused: false
+
+      # ── Collector Health Alert ───────────────────────────
+      - uid: alert-collector-down
+        title: "⚠️ Collector Not Running"
+        condition: C
+        data:
+          - refId: A
+            datasourceUid: timescaledb
+            model:
+              rawSql: |
+                SELECT COUNT(*) AS count
+                FROM collector_runs
+                WHERE time > NOW() - INTERVAL '30 minutes'
+                  AND success = true
+              format: table
+          - refId: C
+            datasourceUid: "__expr__"
+            model:
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last }
+                  type: query
+        noDataState: Alerting
+        execErrState: Alerting
+        for: 10m
+        annotations:
+          summary: "Data collector has not run in 30 minutes"
+          description: "Check earthwatch-collector container logs."
+        labels:
+          severity: warning
+          category: system
+        isPaused: false

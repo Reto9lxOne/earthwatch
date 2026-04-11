@@ -1,0 +1,16 @@
+{
+  "name": "earthwatch-collector",
+  "version": "1.0.0",
+  "description": "Polls public APIs and stores data in TimescaleDB",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "pg": "^8.11.0",
+    "node-cron": "^3.0.3",
+    "node-fetch": "^3.3.2"
+  }
+}

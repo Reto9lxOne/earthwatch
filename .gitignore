@@ -1,0 +1,20 @@
+# Environment - NEVER commit secrets
+.env
+
+# SSL Certificates
+nginx/ssl/*.crt
+nginx/ssl/*.key
+nginx/ssl/*.pem
+
+# Node
+node_modules/
+collector/node_modules/
+proxy/node_modules/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
