@@ -194,7 +194,8 @@ async function runAll() {
     collectSolar(),
   ]);
   // AQ after to avoid hammering APIs simultaneously
-  await collectAirQuality();
+  // AQ temporarily disabled — openaq.org account issues  
+  // await collectAirQuality();
   console.log('✅ All collectors done\n');
 }
 
