@@ -84,7 +84,7 @@ services:
       DB_USER: earthwatch
       DB_PASSWORD: ${DB_PASSWORD}
       POLL_INTERVAL_MINUTES: 5
-      NASA_API_KEY: DEMO_KEY   # replace with your key for higher rate limits
+      NASA_API_KEY: ${NASA_API_KEY}   # replace with your key for higher rate limits
     depends_on:
       timescaledb:
         condition: service_healthy
