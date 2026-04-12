@@ -4,15 +4,9 @@ import { WebSocket, WebSocketServer } from 'ws';
 
 const PORT = process.env.PORT || 3000;
 const AIS_TOKEN = process.env.AISSTREAM_TOKEN || '';
+const NASA_KEY  = process.env.NASA_API_KEY || 'DEMO_KEY';
 
-// ── REST Routes (ADSB) ───────────────────────────────────
-const ROUTES = {
-  '/adsb/': {
-    target: 'https://api.airplanes.live/v2/point/47/8/2000',
-    ttl: 30,
-  },
-};
-
+// ── REST Routes ──────────────────────────────────────────
 const cache = new Map();
 
 function fetchUrl(url) {
@@ -45,27 +39,24 @@ function broadcastShip(vessel) {
 let aisWs = null;
 
 function connectAIS() {
-  if (!AIS_TOKEN) {
-    console.warn('No AISSTREAM_TOKEN — ship tracking disabled');
-    return;
-  }
+  if (!AIS_TOKEN) { console.warn('No AISSTREAM_TOKEN — ship tracking disabled'); return; }
   console.log('Connecting to aisstream.io...');
   aisWs = new WebSocket('wss://stream.aisstream.io/v0/stream');
 
   aisWs.on('open', () => {
     console.log('AIS stream connected');
-  aisWs.send(JSON.stringify({
-  APIKey: AIS_TOKEN,
-  MessageTypes: ['PositionReport', 'ShipStaticData'],
-  BoundingBoxes: [[[30, -15], [65, 35]]],
-}));
+    aisWs.send(JSON.stringify({
+      APIKey: AIS_TOKEN,
+      MessageTypes: ['PositionReport', 'ShipStaticData'],
+      BoundingBoxes: [[[30, -15], [65, 35]]], // Europe
+    }));
   });
 
   aisWs.on('message', (raw) => {
     try {
       const msg = JSON.parse(raw.toString());
       const mtype = msg.MessageType;
-      const meta = msg.MetaData;
+      const meta  = msg.MetaData;
       if (!meta) return;
       const mmsi = String(meta.MMSI);
 
@@ -102,10 +93,7 @@ function connectAIS() {
     } catch {}
   });
 
-  aisWs.on('close', () => {
-    console.warn('AIS stream closed — reconnecting in 10s');
-    setTimeout(connectAIS, 10000);
-  });
+  aisWs.on('close', () => { console.warn('AIS closed — reconnecting in 10s'); setTimeout(connectAIS, 10000); });
   aisWs.on('error', (e) => console.error('AIS error:', e.message));
 }
 
@@ -114,9 +102,20 @@ const server = http.createServer(async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Content-Type', 'application/json');
-
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
+  // Health check
+  if (req.url === '/health') {
+    res.writeHead(200);
+    res.end(JSON.stringify({
+      adsb: 'removed',
+      ais: aisWs?.readyState === WebSocket.OPEN ? 'connected' : 'disconnected',
+      ships: shipState.size,
+    }));
+    return;
+  }
+
+  // Ships snapshot
   if (req.url === '/ships/snapshot') {
     const ships = [...shipState.values()].filter(s => s.lat != null && s.lon != null);
     res.writeHead(200);
@@ -124,51 +123,58 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  if (req.url === '/health') {
-    res.writeHead(200);
-    res.end(JSON.stringify({
-      adsb: 'ok',
-      ais: aisWs?.readyState === WebSocket.OPEN ? 'connected' : 'disconnected',
-      ships: shipState.size,
-    }));
+  // NASA DONKI proxy — key stays on server
+  // Route: /donki/CME?startDate=...&endDate=...
+  if (req.url.startsWith('/donki/')) {
+    try {
+      const urlObj = new URL(req.url, 'http://localhost');
+      const type   = urlObj.pathname.replace('/donki/', '');
+      const params = urlObj.searchParams;
+      params.set('api_key', NASA_KEY);
+      const nasaUrl = `https://api.nasa.gov/DONKI/${type}?${params.toString()}`;
+
+      const cacheKey = nasaUrl;
+      const cached = cache.get(cacheKey);
+      if (cached && Date.now() - cached.ts < 300000) { // 5min cache
+        res.writeHead(200, { 'X-Cache': 'HIT' });
+        res.end(JSON.stringify(cached.data));
+        return;
+      }
+
+      const data = await fetchUrl(nasaUrl);
+      cache.set(cacheKey, { data, ts: Date.now() });
+      res.writeHead(200, { 'X-Cache': 'MISS' });
+      res.end(JSON.stringify(data));
+    } catch (e) {
+      console.error('DONKI proxy error:', e.message);
+      res.writeHead(502);
+      res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 
-  const route = Object.keys(ROUTES).find(r => req.url.startsWith(r));
-  if (!route) { res.writeHead(404); res.end(JSON.stringify({ error: 'Not found' })); return; }
-
-  const cfg = ROUTES[route];
-  const cached = cache.get(route);
-  if (cached && Date.now() - cached.ts < cfg.ttl * 1000) {
-    res.writeHead(200, { 'X-Cache': 'HIT' });
-    res.end(JSON.stringify(cached.data));
-    return;
-  }
-
-  try {
-    const data = await fetchUrl(cfg.target);
-    cache.set(route, { data, ts: Date.now() });
-    res.writeHead(200, { 'X-Cache': 'MISS' });
-    res.end(JSON.stringify(data));
-  } catch (e) {
-    console.error(`Proxy error ${route}:`, e.message);
-    res.writeHead(502);
-    res.end(JSON.stringify({ error: e.message }));
-  }
+  res.writeHead(404);
+  res.end(JSON.stringify({ error: 'Not found' }));
 });
 
-// ── WebSocket for Dashboard Clients ──────────────────────
+// ── WebSocket for Dashboard ───────────────────────────────
 const wss = new WebSocketServer({ server, path: '/ws/ships' });
 
 wss.on('connection', (ws) => {
   dashClients.add(ws);
+  console.log(`Dashboard client connected (${dashClients.size} total)`);
+  // Send snapshot immediately
   const ships = [...shipState.values()].filter(s => s.lat != null && s.lon != null);
   ws.send(JSON.stringify({ type: 'snapshot', ships }));
-  ws.on('close', () => dashClients.delete(ws));
-  ws.on('error', () => dashClients.delete(ws));
+  ws.on('close', () => { dashClients.delete(ws); });
+  ws.on('error', () => { dashClients.delete(ws); });
 });
 
 server.listen(PORT, () => {
-  console.log(`Earthwatch Proxy :${PORT} | ADSB /adsb/ | Ships /ws/ships`);
+  console.log(`Earthwatch Proxy :${PORT}`);
+  console.log(`  Ships WS:  /ws/ships`);
+  console.log(`  Ships REST: /ships/snapshot`);
+  console.log(`  DONKI:     /donki/{type}?startDate=...&endDate=...`);
+  console.log(`  Health:    /health`);
   connectAIS();
 });

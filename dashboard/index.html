@@ -19,15 +19,12 @@
   --bright:  #f0f6fc;
   --mono:    'JetBrains Mono', monospace;
   --sans:    'Inter', sans-serif;
-
   --quake:  #f85149;
   --eonet:  #fb8f44;
-  --flight: #58a6ff;
   --ship:   #3fb950;
   --solar:  #e3b341;
   --iss:    #7ee787;
   --noaa:   #bc8cff;
-  --sat:    #79c0ff;
   --ok:     #3fb950;
 }
 
@@ -57,7 +54,6 @@ header {
   z-index: 100;
   box-shadow: 0 10px 30px rgba(0,0,0,0.18);
 }
-
 .header-inner {
   width: 100%;
   max-width: 1620px;
@@ -66,7 +62,6 @@ header {
   gap: 12px;
   min-width: 0;
 }
-
 .logo { display:flex; align-items:center; gap:8px; flex-shrink:0; }
 .logo-dot {
   width:8px; height:8px; border-radius:50%;
@@ -88,55 +83,27 @@ header {
   color:var(--ok);
   letter-spacing:0.08em;
 }
-
-.global-status {
-  margin-left: 2px;
-  transition: all 0.2s ease;
-}
-
-.global-status.calm {
-  color: var(--ok);
-  border-color: rgba(63,185,80,0.35);
-  background: rgba(63,185,80,0.10);
-}
-
-.global-status.elevated {
-  color: var(--solar);
-  border-color: rgba(227,179,65,0.35);
-  background: rgba(227,179,65,0.10);
-}
-
-.global-status.active {
-  color: var(--eonet);
-  border-color: rgba(251,143,68,0.35);
-  background: rgba(251,143,68,0.10);
-}
-
-.global-status.high {
-  color: var(--quake);
-  border-color: rgba(248,81,73,0.40);
-  background: rgba(248,81,73,0.12);
-  box-shadow: 0 0 16px rgba(248,81,73,0.12);
-}
+.global-status { margin-left:2px; transition:all 0.2s ease; }
+.global-status.calm   { color:var(--ok);   border-color:rgba(63,185,80,0.35);  background:rgba(63,185,80,0.10); }
+.global-status.elevated { color:var(--solar); border-color:rgba(227,179,65,0.35); background:rgba(227,179,65,0.10); }
+.global-status.active { color:var(--eonet); border-color:rgba(251,143,68,0.35); background:rgba(251,143,68,0.10); }
+.global-status.high   { color:var(--quake); border-color:rgba(248,81,73,0.40);  background:rgba(248,81,73,0.12); box-shadow:0 0 16px rgba(248,81,73,0.12); }
 
 .layer-bar { display:flex; gap:5px; flex:1; overflow-x:auto; scrollbar-width:none; min-width:0; }
 .layer-bar::-webkit-scrollbar { display:none; }
-
 .lchip {
   display:flex; align-items:center; gap:5px;
   padding:3px 9px; border-radius:5px;
-  border:1px solid var(--border2);
-  background:transparent;
-  font-size:11px; font-weight:500;
-  color:var(--muted); cursor:pointer;
-  transition:all 0.15s; white-space:nowrap;
+  border:1px solid var(--border2); background:transparent;
+  font-size:11px; font-weight:500; color:var(--muted);
+  cursor:pointer; transition:all 0.15s; white-space:nowrap;
 }
-.lchip .d { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.lchip .d  { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
 .lchip .sp { width:6px; height:6px; border-radius:50%; border:1.5px solid rgba(255,255,255,0.15); border-top-color:currentColor; animation:spin 0.6s linear infinite; display:none; flex-shrink:0; }
 .lchip.loading .sp { display:block; }
 .lchip.loading .d  { display:none; }
 @keyframes spin { to { transform:rotate(360deg); } }
-.lchip.active { color:var(--bright); background:var(--panel); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 0 12px rgba(121,192,255,0.06); }
+.lchip.active { color:var(--bright); background:var(--panel); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03), 0 0 12px rgba(121,192,255,0.06); }
 .lchip .cnt { font-family:var(--mono); font-size:9px; color:var(--muted); }
 
 .header-right { display:flex; gap:8px; align-items:center; flex-shrink:0; margin-left:auto; }
@@ -157,156 +124,86 @@ header {
   grid-template-columns: 260px minmax(0, 1100px) 260px;
   justify-content: center;
   overflow: hidden;
-  gap: 0;
 }
 
-/* ── LEFT PANEL ── */
-.left-panel {
+.left-panel, .right-panel {
   background: var(--surface);
-  border-right: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
+  display: flex; flex-direction: column;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
   min-width: 0;
 }
+.left-panel  { border-right: 1px solid var(--border); }
+.right-panel { border-left:  1px solid var(--border); }
 
-/* ── RIGHT PANEL ── */
-.right-panel {
-  background: var(--surface);
-  border-left: 1px solid var(--border);
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-  min-width: 0;
-}
-
-/* Panel sections */
 .section {
   border-bottom: 1px solid var(--border);
   padding: 12px 14px;
   flex-shrink: 0;
 }
 .section-title {
-  font-size: 11px; font-weight: 600;
-  letter-spacing: 0.12em; text-transform: uppercase;
-  color: var(--muted); margin-bottom: 8px;
-  display: flex; align-items: center; justify-content: space-between;
+  font-size:11px; font-weight:600;
+  letter-spacing:0.12em; text-transform:uppercase;
+  color:var(--muted); margin-bottom:8px;
+  display:flex; align-items:center; justify-content:space-between;
 }
 .section-title .badge {
-  font-family: var(--mono); font-size: 10px;
-  color: var(--bright); font-weight: 500;
-  flex-shrink: 0;
-  margin-left: 8px;
+  font-family:var(--mono); font-size:10px;
+  color:var(--bright); font-weight:500;
+  flex-shrink:0; margin-left:8px;
 }
 
-/* Stat rows */
 .stat-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 6px;
-  min-width: 0;
+  display:flex; align-items:baseline;
+  justify-content:space-between; gap:10px;
+  margin-bottom:6px; min-width:0;
 }
-.stat-label { font-size: 12px; color: var(--muted); min-width: 0; }
+.stat-label { font-size:12px; color:var(--muted); min-width:0; }
 .stat-val {
-  font-family: var(--mono);
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--bright);
-  text-align: right;
-  max-width: 58%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  flex-shrink: 0;
+  font-family:var(--mono); font-size:15px; font-weight:500;
+  color:var(--bright); text-align:right;
+  max-width:58%; overflow:hidden; text-overflow:ellipsis;
+  white-space:nowrap; flex-shrink:0;
 }
 
-/* Big number */
-.big-num {
-  font-family: var(--mono); font-size: 36px; font-weight: 500;
-  line-height: 1; color: var(--bright); margin-bottom: 2px;
-}
-.big-sub { font-size: 10px; color: var(--muted); }
-
-/* ISS stats grid */
-.iss-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.iss-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
 .iss-cell .v { font-family:var(--mono); font-size:15px; font-weight:500; line-height:1; }
 .iss-cell .l { font-size:9px; color:var(--muted); margin-top:2px; }
 
-/* Live dot */
 .live-dot { width:5px; height:5px; border-radius:50%; display:inline-block; margin-right:4px; animation:pulse 1.5s ease-in-out infinite; }
 
-/* Feed */
-.feed-list { display:flex; flex-direction:column; gap:0; }
+.feed-list { display:flex; flex-direction:column; }
 .feed-item {
-  padding: 8px 0;
-  border-bottom: 1px solid rgba(33,38,45,0.6);
-  cursor: pointer;
-  transition: background 0.15s ease, transform 0.15s ease;
+  padding:8px 0; border-bottom:1px solid rgba(33,38,45,0.6);
+  cursor:pointer; transition:background 0.15s ease, transform 0.15s ease;
 }
-.feed-item:hover { background: rgba(255,255,255,0.02); margin: 0 -14px; padding: 8px 14px; transform: translateX(1px); }
-.feed-item:last-child { border-bottom: none; }
-.feed-item-title {
-  font-size: 11px;
-  color: var(--bright);
-  line-height: 1.35;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-  width: 100%;
-}
-.feed-item-sub {
-  font-family:var(--mono);
-  font-size:9px;
-  color:var(--muted);
-  margin-top:3px;
-  display:block;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.feed-dot { width:5px; height:5px; border-radius:50%; display:inline-block; margin-right:4px; flex-shrink:0; vertical-align:middle; }
+.feed-item:hover { background:rgba(255,255,255,0.02); margin:0 -14px; padding:8px 14px; transform:translateX(1px); }
+.feed-item:last-child { border-bottom:none; }
+.feed-item-title { font-size:11px; color:var(--bright); line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; width:100%; }
+.feed-item-sub { font-family:var(--mono); font-size:9px; color:var(--muted); margin-top:3px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.feed-dot { width:5px; height:5px; border-radius:50%; display:inline-block; margin-right:4px; vertical-align:middle; }
 
-/* Solar list */
 .solar-item { display:flex; gap:8px; align-items:center; padding:3px 0; }
 .solar-type { font-family:var(--mono); font-size:10px; font-weight:600; color:var(--solar); }
 .solar-time { font-family:var(--mono); font-size:9px; color:var(--muted); }
 
-/* NOAA */
 .noaa-item { font-size:10px; color:var(--noaa); padding:3px 0; border-bottom:1px solid var(--border); line-height:1.3; }
 .noaa-item:last-child { border-bottom:none; }
 .noaa-none { font-size:10px; color:var(--muted); font-style:italic; }
 
-/* Astronauts */
 .astro-chips { display:flex; flex-wrap:wrap; gap:4px; margin-top:4px; }
-.astro-chip {
-  font-size:10px; padding:2px 7px; border-radius:4px;
-  background:var(--panel); border:1px solid var(--border2); color:var(--text);
-}
+.astro-chip { font-size:10px; padding:2px 7px; border-radius:4px; background:var(--panel); border:1px solid var(--border2); color:var(--text); }
 .astro-chip.iss { border-color:rgba(126,231,135,0.4); color:var(--iss); background:rgba(126,231,135,0.06); }
 
 /* ── MAP ── */
 .map-wrap {
-  position: relative;
-  overflow: hidden;
-  min-width: 0;
-  min-height: 0;
-  border-left: 1px solid rgba(255,255,255,0.03);
-  border-right: 1px solid rgba(255,255,255,0.03);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), inset 0 20px 50px rgba(0,0,0,0.16);
+  position:relative; overflow:hidden; min-width:0; min-height:0;
+  border-left:1px solid rgba(255,255,255,0.03);
+  border-right:1px solid rgba(255,255,255,0.03);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.03), inset 0 20px 50px rgba(0,0,0,0.16);
 }
-#map {
-  width: 100%;
-  height: 100%;
-  min-width: 0;
-  min-height: 0;
-}
+#map { width:100%; height:100%; }
 .leaflet-container { background:#0d1117; }
 
 #map-loading {
@@ -317,14 +214,9 @@ header {
   transition:opacity 0.4s;
 }
 #map-loading.hidden { opacity:0; pointer-events:none; }
-.map-spinner {
-  width:32px; height:32px; border-radius:50%;
-  border:2px solid var(--border2); border-top-color:var(--ok);
-  animation:spin 0.8s linear infinite;
-}
+.map-spinner { width:32px; height:32px; border-radius:50%; border:2px solid var(--border2); border-top-color:var(--ok); animation:spin 0.8s linear infinite; }
 .map-loading-txt { font-family:var(--mono); font-size:10px; color:var(--muted); }
 
-/* Popup */
 .mpop {
   position:absolute; z-index:700;
   background:var(--surface); border:1px solid var(--border2);
@@ -336,51 +228,41 @@ header {
 .mpop h4 { font-size:12px; font-weight:600; color:var(--bright); margin-bottom:5px; line-height:1.3; }
 .mpop-meta { font-family:var(--mono); font-size:10px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
 
-/* ── BOTTOM BAR ── */
+/* ── BOTTOM ── */
 .bottom-wrap {
-  display: flex;
-  justify-content: center;
-  background: linear-gradient(0deg, rgba(22,27,34,0.96), rgba(22,27,34,0.88));
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -10px 30px rgba(0,0,0,0.18);
+  display:flex; justify-content:center;
+  background:linear-gradient(0deg, rgba(22,27,34,0.96), rgba(22,27,34,0.88));
+  border-top:1px solid var(--border);
+  box-shadow:0 -10px 30px rgba(0,0,0,0.18);
 }
-
 .bottom {
-  width: 100%;
-  max-width: 1620px;
-  display: grid;
-  grid-template-columns: 220px repeat(5,minmax(0,1fr)) 220px;
-  background: var(--border);
-  gap: 1px;
+  width:100%; max-width:1620px;
+  display:grid;
+  grid-template-columns: 220px repeat(4, minmax(0,1fr)) 220px;
+  background:var(--border); gap:1px;
 }
 .bpanel {
-  background: var(--surface);
-  padding: 10px 14px;
-  display: flex; flex-direction: column; justify-content: center; gap: 3px;
-  min-width: 0;
+  background:var(--surface); padding:10px 14px;
+  display:flex; flex-direction:column; justify-content:center; gap:3px;
+  min-width:0;
 }
-.bpanel-label { font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bpanel-val { font-family:var(--mono); font-size:24px; font-weight:500; line-height:1; color:var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.bpanel-sub { font-family:var(--mono); font-size:9px; color:var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bpanel-label { font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space:nowrap; }
+.bpanel-val   { font-family:var(--mono); font-size:24px; font-weight:500; line-height:1; color:var(--bright); white-space:nowrap; }
+.bpanel-sub   { font-family:var(--mono); font-size:9px; color:var(--muted); white-space:nowrap; }
 
-@media (max-width: 1500px) {
-  .header-inner,
-  .bottom { max-width: 1440px; }
-  .middle { grid-template-columns: 240px minmax(0, 960px) 240px; }
+@media (max-width:1500px) {
+  .header-inner, .bottom { max-width:1440px; }
+  .middle { grid-template-columns: 240px minmax(0,960px) 240px; }
 }
-
-@media (max-width: 1320px) {
-  .header-inner { flex-wrap: wrap; padding: 8px 0; }
-  .middle { grid-template-columns: 220px minmax(0, 1fr) 220px; }
+@media (max-width:1320px) {
+  .middle { grid-template-columns: 220px minmax(0,1fr) 220px; }
   .bottom { grid-template-columns: repeat(4, minmax(0,1fr)); }
 }
-
 </style>
 </head>
 <body>
 <div class="app">
 
-<!-- HEADER -->
 <header>
   <div class="header-inner">
     <div class="logo">
@@ -389,18 +271,14 @@ header {
       <span class="logo-tag">LIVE</span>
       <span class="global-status calm" id="global-status">CALM</span>
     </div>
-
     <div class="layer-bar">
-    <button class="lchip active" data-layer="quake"><div class="d" style="background:var(--quake)"></div><div class="sp"></div>Earthquakes<span class="cnt" id="cnt-quake">—</span></button>
-    <button class="lchip active" data-layer="eonet"><div class="d" style="background:var(--eonet)"></div><div class="sp"></div>Events<span class="cnt" id="cnt-eonet">—</span></button>
-    <button class="lchip active" data-layer="flight"><div class="d" style="background:var(--flight)"></div><div class="sp"></div>Flights<span class="cnt" id="cnt-flight">—</span></button>
-    <button class="lchip active" data-layer="ship"><div class="d" style="background:var(--ship)"></div><div class="sp"></div>Ships<span class="cnt" id="cnt-ship">—</span></button>
-    <button class="lchip active" data-layer="sat"><div class="d" style="background:var(--sat)"></div><div class="sp"></div>Satellites<span class="cnt" id="cnt-sat">—</span></button>
-    <button class="lchip active" data-layer="iss"><div class="d" style="background:var(--iss)"></div><div class="sp"></div>ISS<span class="cnt" id="cnt-iss">LIVE</span></button>
-    <button class="lchip active" data-layer="noaa"><div class="d" style="background:var(--noaa)"></div><div class="sp"></div>NOAA<span class="cnt" id="cnt-noaa">—</span></button>
-    <button class="lchip active" data-layer="solar"><div class="d" style="background:var(--solar)"></div><div class="sp"></div>Solar<span class="cnt" id="cnt-solar">—</span></button>
-  </div>
-
+      <button class="lchip active" data-layer="quake"><div class="d" style="background:var(--quake)"></div><div class="sp"></div>Earthquakes<span class="cnt" id="cnt-quake">—</span></button>
+      <button class="lchip active" data-layer="eonet"><div class="d" style="background:var(--eonet)"></div><div class="sp"></div>Events<span class="cnt" id="cnt-eonet">—</span></button>
+      <button class="lchip active" data-layer="ship"><div class="d" style="background:var(--ship)"></div><div class="sp"></div>Ships<span class="cnt" id="cnt-ship">—</span></button>
+      <button class="lchip active" data-layer="iss"><div class="d" style="background:var(--iss)"></div><div class="sp"></div>ISS<span class="cnt" id="cnt-iss">LIVE</span></button>
+      <button class="lchip active" data-layer="noaa"><div class="d" style="background:var(--noaa)"></div><div class="sp"></div>NOAA<span class="cnt" id="cnt-noaa">—</span></button>
+      <button class="lchip active" data-layer="solar"><div class="d" style="background:var(--solar)"></div><div class="sp"></div>Solar<span class="cnt" id="cnt-solar">—</span></button>
+    </div>
     <div class="header-right">
       <a class="grafana-btn" href="https://grafana.9lx.io" target="_blank">&#128200; Grafana</a>
       <div class="clock"><span class="t" id="clock">—</span><span id="dateline">—</span></div>
@@ -408,13 +286,10 @@ header {
   </div>
 </header>
 
-<!-- MIDDLE -->
 <div class="middle">
 
-  <!-- LEFT PANEL -->
+  <!-- LEFT -->
   <div class="left-panel">
-
-    <!-- ISS -->
     <div class="section">
       <div class="section-title">
         <span><span class="live-dot" style="background:var(--iss)"></span>ISS Position</span>
@@ -427,125 +302,59 @@ header {
         <div class="iss-cell"><div class="v" style="color:var(--iss)" id="iss-vel">—</div><div class="l">Speed km/h</div></div>
       </div>
     </div>
-
-    <!-- Earthquakes -->
     <div class="section">
-      <div class="section-title">
-        <span>Seismic 24h</span>
-        <span class="badge" id="s-quakes" style="color:var(--quake)">—</span>
-      </div>
+      <div class="section-title"><span>Seismic 24h</span><span class="badge" id="s-quakes" style="color:var(--quake)">—</span></div>
       <div class="stat-row"><span class="stat-label">Max magnitude</span><span class="stat-val" id="s-maxmag" style="color:var(--quake)">—</span></div>
-      <div class="stat-row"><span class="stat-label">Location</span><span class="stat-val" style="font-size:10px;max-width:120px;text-align:right;line-height:1.2" id="s-maxplace">—</span></div>
+      <div class="stat-row"><span class="stat-label">Location</span><span class="stat-val" style="font-size:10px" id="s-maxplace">—</span></div>
     </div>
-
-    <!-- Natural Events -->
     <div class="section">
-      <div class="section-title">
-        <span>Natural Events</span>
-        <span class="badge" id="s-events" style="color:var(--eonet)">—</span>
-      </div>
+      <div class="section-title"><span>Natural Events</span><span class="badge" id="s-events" style="color:var(--eonet)">—</span></div>
       <div class="stat-row"><span class="stat-label">Wildfires</span><span class="stat-val" id="s-fires" style="color:var(--eonet)">—</span></div>
       <div class="stat-row"><span class="stat-label">Storms</span><span class="stat-val" id="s-storms" style="color:#58a6ff">—</span></div>
       <div class="stat-row"><span class="stat-label">Volcanoes</span><span class="stat-val" id="s-volc" style="color:var(--quake)">—</span></div>
     </div>
-
-    <!-- Ships -->
     <div class="section">
-      <div class="section-title">
-        <span><span class="live-dot" style="background:var(--ship)"></span>Ships Live</span>
-        <span class="badge" id="s-ships" style="color:var(--ship)">—</span>
-      </div>
+      <div class="section-title"><span><span class="live-dot" style="background:var(--ship)"></span>Ships Live</span><span class="badge" id="s-ships" style="color:var(--ship)">—</span></div>
       <div class="stat-row"><span class="stat-label">Source</span><span class="stat-val" style="font-size:10px">aisstream.io</span></div>
-      <div class="stat-row"><span class="stat-label">Coverage</span><span class="stat-val" style="font-size:10px">Global</span></div>
+      <div class="stat-row"><span class="stat-label">Coverage</span><span class="stat-val" style="font-size:10px">Europe</span></div>
     </div>
-
-    <!-- Flights -->
-    <div class="section">
-      <div class="section-title">
-        <span>Flights</span>
-        <span class="badge" id="s-flights" style="color:var(--flight)">—</span>
-      </div>
-      <div class="stat-row"><span class="stat-label">Region</span><span class="stat-val" style="font-size:10px">Europe</span></div>
-      <div class="stat-row"><span class="stat-label">Source</span><span class="stat-val" style="font-size:10px">airplanes.live</span></div>
-    </div>
-
   </div>
 
   <!-- MAP -->
   <div class="map-wrap">
     <div id="map"></div>
-    <div id="map-loading">
-      <div class="map-spinner"></div>
-      <div class="map-loading-txt">Loading data sources...</div>
-    </div>
-    <div class="mpop" id="popup">
-      <h4 id="popup-title">—</h4>
-      <div class="mpop-meta" id="popup-meta"></div>
-    </div>
+    <div id="map-loading"><div class="map-spinner"></div><div class="map-loading-txt">Loading data sources...</div></div>
+    <div class="mpop" id="popup"><h4 id="popup-title">—</h4><div class="mpop-meta" id="popup-meta"></div></div>
   </div>
 
-  <!-- RIGHT PANEL -->
+  <!-- RIGHT -->
   <div class="right-panel">
-
-    <!-- Solar -->
     <div class="section">
-      <div class="section-title">
-        <span>Solar / Space Weather</span>
-        <span class="badge" id="s-solar" style="color:var(--solar)">—</span>
-      </div>
-      <div class="solar-list" id="solar-list">
-        <div class="noaa-none">Loading...</div>
-      </div>
+      <div class="section-title"><span>Solar / Space Weather</span><span class="badge" id="s-solar" style="color:var(--solar)">—</span></div>
+      <div class="solar-list" id="solar-list"><div class="noaa-none">Loading...</div></div>
     </div>
-
-    <!-- NOAA -->
     <div class="section">
-      <div class="section-title">
-        <span>NOAA Alerts</span>
-        <span class="badge" id="s-noaa" style="color:var(--noaa)">—</span>
-      </div>
+      <div class="section-title"><span>NOAA Alerts</span><span class="badge" id="s-noaa" style="color:var(--noaa)">—</span></div>
       <div id="noaa-list"><div class="noaa-none">Loading...</div></div>
     </div>
-
-    <!-- Crew in Space -->
     <div class="section">
-      <div class="section-title">
-        <span>Crew in Space</span>
-        <span class="badge" id="s-crew" style="color:var(--iss)">—</span>
-      </div>
+      <div class="section-title"><span>Crew in Space</span><span class="badge" id="s-crew" style="color:var(--iss)">—</span></div>
       <div class="astro-chips" id="astro-list"></div>
     </div>
-
-    <!-- Satellites -->
-    <div class="section">
-      <div class="section-title">
-        <span>Satellites Tracked</span>
-        <span class="badge" id="s-sat" style="color:var(--sat)">—</span>
-      </div>
-      <div class="stat-row"><span class="stat-label">Starlink</span><span class="stat-val" id="sat-starlink" style="color:var(--sat)">—</span></div>
-      <div class="stat-row"><span class="stat-label">Weather</span><span class="stat-val" id="sat-weather" style="color:var(--sat)">—</span></div>
-      <div class="stat-row"><span class="stat-label">GPS</span><span class="stat-val" id="sat-gps" style="color:var(--sat)">—</span></div>
-      <div class="stat-row"><span class="stat-label">Source</span><span class="stat-val" style="font-size:10px">KeepTrack API</span></div>
-    </div>
-
-    <!-- Live Feed -->
     <div class="section" style="flex:1">
       <div class="section-title">Live Feed</div>
-      <div class="feed-list" id="feed-list">
-        <div class="noaa-none">Loading...</div>
-      </div>
+      <div class="feed-list" id="feed-list"><div class="noaa-none">Loading...</div></div>
     </div>
-
   </div>
 </div>
 
-<!-- BOTTOM BAR -->
+<!-- BOTTOM -->
 <div class="bottom-wrap">
 <div class="bottom">
   <div class="bpanel" style="border-right:1px solid var(--border)">
     <div class="bpanel-label">Last Updated</div>
     <div class="bpanel-val" id="b-updated" style="font-size:16px;color:var(--ok)">—</div>
-    <div class="bpanel-sub" id="b-sources">0/7 sources ok</div>
+    <div class="bpanel-sub" id="b-sources">0/5 sources ok</div>
   </div>
   <div class="bpanel">
     <div class="bpanel-label">Earthquakes 24h</div>
@@ -558,19 +367,14 @@ header {
     <div class="bpanel-sub" id="b-fires2">Wildfires: —</div>
   </div>
   <div class="bpanel">
-    <div class="bpanel-label">Flights</div>
-    <div class="bpanel-val" style="color:var(--flight)" id="b-flights">—</div>
-    <div class="bpanel-sub">Europe region</div>
-  </div>
-  <div class="bpanel">
     <div class="bpanel-label">Ships Live</div>
     <div class="bpanel-val" style="color:var(--ship)" id="b-ships">—</div>
     <div class="bpanel-sub">aisstream.io</div>
   </div>
   <div class="bpanel">
-    <div class="bpanel-label">Satellites</div>
-    <div class="bpanel-val" style="color:var(--sat)" id="b-sat">—</div>
-    <div class="bpanel-sub">KeepTrack API</div>
+    <div class="bpanel-label">Solar Events 7d</div>
+    <div class="bpanel-val" style="color:var(--solar)" id="b-solar">—</div>
+    <div class="bpanel-sub">NASA DONKI</div>
   </div>
   <div class="bpanel" style="border-left:1px solid var(--border)">
     <div class="bpanel-label">ISS Speed</div>
@@ -583,45 +387,31 @@ header {
 
 <script>
 // ── CONFIG ───────────────────────────────────────────────
-const IS_PROD  = window.location.hostname.includes('9lx.io');
-const ADSB_URL = IS_PROD ? '/api/adsb/' : 'https://corsproxy.io/?url=http://api.airplanes.live/v2/point/47/8/2000';
+const IS_PROD = window.location.hostname.includes('9lx.io');
 const SHIPS_WS = IS_PROD
   ? `wss://${window.location.host}/ws/ships`
   : 'ws://localhost:3000/ws/ships';
-const NASA_KEY = 'DEMO_KEY';
+// Solar via proxy — NASA key bleibt auf dem Server
+const SOLAR_BASE = IS_PROD ? '/api/donki' : 'https://api.nasa.gov/DONKI';
 
-const layers  = { quake:true, eonet:true, flight:true, ship:true, sat:true, iss:true, noaa:true, solar:true };
-const markers = { quake:[], eonet:[], flight:[], ship:[], sat:[], noaa:[], iss:null };
+// ── STATE ────────────────────────────────────────────────
+const layers  = { quake:true, eonet:true, ship:true, iss:true, noaa:true, solar:true };
+const markers = { quake:[], eonet:[], noaa:[], iss:null };
 const shipMarkers = new Map();
 const MAX_VISIBLE_SHIPS = 500;
 const feed = [];
 const sources = {};
 
 // ── MAP ──────────────────────────────────────────────────
-const map = L.map('map', {
-  center:[20,0],
-  zoom:2,
-  zoomControl:false,
-  worldCopyJump:false,
-  minZoom:2,
-  maxZoom:19,
-});
+const map = L.map('map', { center:[20,10], zoom:2, zoomControl:false, worldCopyJump:false });
 L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   attribution:'&copy; OpenStreetMap &copy; CARTO',
   subdomains:'abcd', maxZoom:19, noWrap:true,
 }).addTo(map);
 L.control.zoom({position:'bottomright'}).addTo(map);
 
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    map.invalidateSize();
-    map.setView([20,0], 2, { animate:false });
-  }, 100);
-});
-
-window.addEventListener('resize', () => {
-  map.invalidateSize();
-});
+window.addEventListener('load', () => { setTimeout(() => { map.invalidateSize(); }, 100); });
+window.addEventListener('resize', () => { map.invalidateSize(); });
 
 function hideLoader() { document.getElementById('map-loading').classList.add('hidden'); }
 
@@ -629,9 +419,7 @@ function showPop(x, y, title, lines) {
   document.getElementById('popup-title').textContent = title;
   document.getElementById('popup-meta').innerHTML = lines.map(l=>`<span>${l}</span>`).join('');
   const p = document.getElementById('popup');
-  // Keep popup inside map
-  const mapEl = document.querySelector('.map-wrap');
-  const rect = mapEl.getBoundingClientRect();
+  const rect = document.querySelector('.map-wrap').getBoundingClientRect();
   let px = x - rect.left + 14;
   let py = y - rect.top - 8;
   if (px + 250 > rect.width) px = x - rect.left - 260;
@@ -643,7 +431,6 @@ map.on('click', hidePop);
 function flyTo(lat,lng,z=5) { map.flyTo([lat,lng],z,{duration:1}); }
 function clearLayer(l) { markers[l].forEach(m=>m.remove()); markers[l]=[]; }
 
-// Layer toggles
 document.querySelectorAll('.lchip').forEach(btn => {
   btn.addEventListener('click', () => {
     const l = btn.dataset.layer;
@@ -668,41 +455,26 @@ function tick() {
 }
 setInterval(tick,1000); tick();
 
-// ── SOURCE COUNTER ────────────────────────────────────────
+// ── SOURCES ──────────────────────────────────────────────
 function markSource(key, ok) {
   sources[key] = ok;
-  const total = 7;
+  const total = 5;
   const okCount = Object.values(sources).filter(Boolean).length;
   document.getElementById('b-sources').textContent = `${okCount}/${total} sources ok`;
   document.getElementById('b-updated').textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 }
 
-
 function updateGlobalStatus() {
-  const quakeCount = Number(document.getElementById('cnt-quake')?.textContent || 0) || 0;
-  const eventCount = Number(document.getElementById('cnt-eonet')?.textContent || 0) || 0;
-  const noaaCount = Number(document.getElementById('cnt-noaa')?.textContent || 0) || 0;
-  const maxMagText = document.getElementById('s-maxmag')?.textContent || '';
-  const maxMag = parseFloat(maxMagText.replace('M', '')) || 0;
-
-  let label = 'CALM';
-  let cls = 'calm';
-
-  if (maxMag >= 7 || noaaCount >= 10 || eventCount >= 120) {
-    label = 'HIGH ACTIVITY';
-    cls = 'high';
-  } else if (maxMag >= 6 || noaaCount >= 5 || eventCount >= 70 || quakeCount >= 180) {
-    label = 'ACTIVE';
-    cls = 'active';
-  } else if (maxMag >= 5 || noaaCount >= 1 || eventCount >= 30 || quakeCount >= 90) {
-    label = 'ELEVATED';
-    cls = 'elevated';
-  }
-
+  const quakeCount = Number(document.getElementById('cnt-quake')?.textContent||0)||0;
+  const eventCount = Number(document.getElementById('cnt-eonet')?.textContent||0)||0;
+  const noaaCount  = Number(document.getElementById('cnt-noaa')?.textContent||0)||0;
+  const maxMag     = parseFloat((document.getElementById('s-maxmag')?.textContent||'').replace('M',''))||0;
+  let label='CALM', cls='calm';
+  if      (maxMag>=7||noaaCount>=10||eventCount>=120) { label='HIGH ACTIVITY'; cls='high'; }
+  else if (maxMag>=6||noaaCount>=5||eventCount>=70||quakeCount>=180) { label='ACTIVE'; cls='active'; }
+  else if (maxMag>=5||noaaCount>=1||eventCount>=30||quakeCount>=90)  { label='ELEVATED'; cls='elevated'; }
   const el = document.getElementById('global-status');
-  if (!el) return;
-  el.textContent = label;
-  el.className = `global-status ${cls}`;
+  if (el) { el.textContent=label; el.className=`global-status ${cls}`; }
 }
 
 // ── FEED ─────────────────────────────────────────────────
@@ -712,16 +484,13 @@ function addFeed(layer, title, sub, lat, lng) {
   renderFeed();
 }
 function renderFeed() {
-  const colors = {quake:'-quake',eonet:'-eonet',flight:'-flight',ship:'-ship',noaa:'-noaa'};
   const el = document.getElementById('feed-list');
   if (!feed.length) { el.innerHTML='<div class="noaa-none">No data yet</div>'; return; }
   el.innerHTML = feed.slice(0,20).map(item => {
     const c = `var(--${item.layer})`;
     return `<div class="feed-item" onclick="flyTo(${item.lat},${item.lng})">
-      <div class="feed-item-title">
-        <span class="feed-dot" style="background:${c}"></span>${item.title}
-      </div>
-      <div class="feed-item-sub"><span>${item.sub}</span></div>
+      <span class="feed-item-title"><span class="feed-dot" style="background:${c}"></span>${item.title}</span>
+      <span class="feed-item-sub">${item.sub}</span>
     </div>`;
   }).join('');
 }
@@ -735,20 +504,17 @@ async function loadQuakes() {
     const r=await fetch('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson');
     const d=await r.json();
     const ft=d.features||[];
-    const n=ft.length;
-    document.getElementById('cnt-quake').textContent=n;
-    document.getElementById('s-quakes').textContent=n;
-    document.getElementById('b-quakes').textContent=n;
-
+    document.getElementById('cnt-quake').textContent=ft.length;
+    document.getElementById('s-quakes').textContent=ft.length;
+    document.getElementById('b-quakes').textContent=ft.length;
     const max=ft.reduce((a,b)=>(b.properties.mag||0)>(a.properties?.mag||0)?b:a,{properties:{mag:0}});
-    if(max.properties?.mag){
+    if (max.properties?.mag) {
       const mag=max.properties.mag.toFixed(1);
       const place=(max.properties.place||'').replace(/^\d+km \w+ of /,'').split(',')[0];
       document.getElementById('s-maxmag').textContent=`M${mag}`;
       document.getElementById('s-maxplace').textContent=place;
       document.getElementById('b-maxmag2').textContent=`Max: M${mag}`;
     }
-
     clearLayer('quake');
     ft.forEach(f=>{
       const [lng,lat]=f.geometry.coordinates;
@@ -771,9 +537,8 @@ async function loadQuakes() {
       markers.quake.push(m);
       addFeed('quake',`M${mag.toFixed(1)} ${f.properties.place||''}`,new Date(f.properties.time).toUTCString().slice(5,22),lat,lng);
     });
-    markSource('quake',true);
-    updateGlobalStatus();
-  } catch(e){console.warn('Quakes:',e); markSource('quake',false);}
+    markSource('quake',true); updateGlobalStatus();
+  } catch(e){ console.warn('Quakes:',e); markSource('quake',false); }
   btn.classList.remove('loading');
 }
 
@@ -796,13 +561,10 @@ async function loadEonet() {
     document.getElementById('cnt-eonet').textContent=evs.length;
     document.getElementById('s-events').textContent=evs.length;
     document.getElementById('b-events').textContent=evs.length;
-    const fires=evs.filter(e=>e.categories?.[0]?.id==='wildfires').length;
-    const storms=evs.filter(e=>e.categories?.[0]?.id==='severeStorms').length;
-    const volc=evs.filter(e=>e.categories?.[0]?.id==='volcanoes').length;
-    document.getElementById('s-fires').textContent=fires;
-    document.getElementById('s-storms').textContent=storms;
-    document.getElementById('s-volc').textContent=volc;
-    document.getElementById('b-fires2').textContent=`Wildfires: ${fires}`;
+    document.getElementById('s-fires').textContent=evs.filter(e=>e.categories?.[0]?.id==='wildfires').length;
+    document.getElementById('s-storms').textContent=evs.filter(e=>e.categories?.[0]?.id==='severeStorms').length;
+    document.getElementById('s-volc').textContent=evs.filter(e=>e.categories?.[0]?.id==='volcanoes').length;
+    document.getElementById('b-fires2').textContent=`Wildfires: ${evs.filter(e=>e.categories?.[0]?.id==='wildfires').length}`;
     clearLayer('eonet');
     evs.forEach(ev=>{
       const geo=ev.geometry; if(!geo?.length) return;
@@ -822,121 +584,69 @@ async function loadEonet() {
       if(layers.eonet) m.addTo(map);
       markers.eonet.push(m);
     });
-    markSource('eonet',true);
-    updateGlobalStatus();
-  } catch(e){console.warn('EONET:',e); markSource('eonet',false);}
+    markSource('eonet',true); updateGlobalStatus();
+  } catch(e){ console.warn('EONET:',e); markSource('eonet',false); }
   btn.classList.remove('loading');
 }
 
-// ── 3. FLIGHTS ───────────────────────────────────────────
-async function loadFlights() {
-  const btn=document.querySelector('[data-layer="flight"]'); btn.classList.add('loading');
-  try {
-    const r=await fetch(ADSB_URL);
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const d=await r.json();
-    const ac=(d.ac||[]).filter(a=>a.lat&&a.lon);
-    document.getElementById('cnt-flight').textContent=ac.length;
-    document.getElementById('s-flights').textContent=ac.length;
-    document.getElementById('b-flights').textContent=ac.length;
-    clearLayer('flight');
-    ac.slice(0,500).forEach(a=>{
-      const hdg=a.track||0; const cs=a.flight?.trim()||a.r||a.hex||'?';
-      const icon=L.divIcon({
-        html:`<div style="width:13px;height:13px;display:flex;align-items:center;justify-content:center;transform:rotate(${hdg}deg);color:#58a6ff;font-size:9px;filter:drop-shadow(0 0 2px #58a6ff55);cursor:pointer;line-height:1;">&#9992;</div>`,
-        className:'',iconSize:[13,13],iconAnchor:[6,6],
-      });
-      const m=L.marker([a.lat,a.lon],{icon});
-      const alt=a.alt_baro&&a.alt_baro!=='ground'?Math.round(a.alt_baro)+'ft':'Ground';
-      m.on('mouseover',e=>showPop(e.originalEvent.clientX,e.originalEvent.clientY,`&#9992; ${cs}`,[
-        `Type: ${a.t||'—'} | Hdg: ${Math.round(hdg)}°`,
-        `Alt: ${alt} | Spd: ${a.gs?Math.round(a.gs)+'kts':'—'}`,
-      ]));
-      m.on('mouseout',hidePop);
-      if(layers.flight) m.addTo(map);
-      markers.flight.push(m);
-    });
-    markSource('flight',true);
-  } catch(e){
-    console.warn('Flights:',e);
-    document.getElementById('cnt-flight').textContent='—';
-    document.getElementById('b-flights').textContent='—';
-    markSource('flight',false);
-  }
-  btn.classList.remove('loading');
-}
-
-// ── 4. SHIPS via WebSocket ────────────────────────────────
+// ── 3. SHIPS ─────────────────────────────────────────────
 const SHIP_TYPES={30:'Fishing',36:'Sailing',37:'Pleasure',60:'Passenger',70:'Cargo',80:'Tanker'};
 function shipCol(nav){return nav===1?'#e3b341':nav===5?'#6e7681':'#3fb950';}
 
 function addOrUpdateShip(v) {
-  if (v.lat == null || v.lon == null) return;
-
-  if (shipMarkers.has(v.mmsi)) {
-    shipMarkers.get(v.mmsi).setLatLng([v.lat, v.lon]);
-    return;
-  }
-
-  const col = shipCol(v.navStatus);
-  const icon = L.divIcon({
-    html: `<div style="width:8px;height:8px;border-radius:50%;background:${col};border:1px solid ${col}88;box-shadow:0 0 4px ${col}55;cursor:pointer;"></div>`,
-    className: '',
-    iconSize: [8, 8],
-    iconAnchor: [4, 4],
+  if (v.lat==null||v.lon==null) return;
+  if (shipMarkers.has(v.mmsi)) { shipMarkers.get(v.mmsi).setLatLng([v.lat,v.lon]); return; }
+  const col=shipCol(v.navStatus);
+  const icon=L.divIcon({
+    html:`<div style="width:8px;height:8px;border-radius:50%;background:${col};border:1px solid ${col}88;box-shadow:0 0 4px ${col}55;cursor:pointer;"></div>`,
+    className:'',iconSize:[8,8],iconAnchor:[4,4],
   });
-
-  const m = L.marker([v.lat, v.lon], { icon });
-  const name = v.name || v.mmsi || 'Unknown';
-  const typeLbl = SHIP_TYPES[Math.floor((v.shipType || 0) / 10) * 10] || 'Vessel';
-
-  m.on('mouseover', e => showPop(e.originalEvent.clientX, e.originalEvent.clientY, `&#9875; ${name}`, [
+  const m=L.marker([v.lat,v.lon],{icon});
+  const name=v.name||v.mmsi||'Unknown';
+  const typeLbl=SHIP_TYPES[Math.floor((v.shipType||0)/10)*10]||'Vessel';
+  m.on('mouseover',e=>showPop(e.originalEvent.clientX,e.originalEvent.clientY,`&#9875; ${name}`,[
     `Type: ${typeLbl} | MMSI: ${v.mmsi}`,
-    `Speed: ${v.sog?.toFixed(1) || '—'} kts`,
-    `Dest: ${v.destination || '—'}`,
+    `Speed: ${v.sog?.toFixed(1)||'—'} kts`,
+    `Dest: ${v.destination||'—'}`,
   ]));
-  m.on('mouseout', hidePop);
-
-  if (layers.ship) m.addTo(map);
-  shipMarkers.set(v.mmsi, m);
-
-  // Limit visible ships
-  if (shipMarkers.size > MAX_VISIBLE_SHIPS) {
-    const oldestKey = shipMarkers.keys().next().value;
-    const oldestMarker = shipMarkers.get(oldestKey);
-    if (oldestMarker) {
-      oldestMarker.remove();
-    }
-    shipMarkers.delete(oldestKey);
+  m.on('mouseout',hidePop);
+  if(layers.ship) m.addTo(map);
+  shipMarkers.set(v.mmsi,m);
+  if (shipMarkers.size>MAX_VISIBLE_SHIPS) {
+    const oldKey=shipMarkers.keys().next().value;
+    shipMarkers.get(oldKey)?.remove();
+    shipMarkers.delete(oldKey);
   }
 }
 
 function updateShipCount() {
   const n=shipMarkers.size;
-  document.getElementById('cnt-ship').textContent=n;
-  document.getElementById('s-ships').textContent=n;
-  document.getElementById('b-ships').textContent=n;
+  ['cnt-ship','s-ships','b-ships'].forEach(id=>document.getElementById(id).textContent=n);
 }
 
 function connectShips() {
   const btn=document.querySelector('[data-layer="ship"]');
+  btn.classList.add('loading');
   try {
     const ws=new WebSocket(SHIPS_WS);
     ws.onopen=()=>{ btn.classList.remove('loading'); markSource('ship',true); };
     ws.onmessage=(evt)=>{
-      const msg=JSON.parse(evt.data);
-      if(msg.type==='snapshot') { msg.ships.forEach(addOrUpdateShip); updateShipCount(); }
-      else if(msg.type==='ship') { addOrUpdateShip(msg.data); updateShipCount(); }
+      try {
+        const msg=JSON.parse(evt.data);
+        if(msg.type==='snapshot') { msg.ships.forEach(addOrUpdateShip); updateShipCount(); }
+        else if(msg.type==='ship') { addOrUpdateShip(msg.data); updateShipCount(); }
+      } catch {}
     };
     ws.onclose=()=>{ console.warn('Ships WS closed, retry 15s'); setTimeout(connectShips,15000); };
     ws.onerror=()=>{
-      btn.style.opacity='0.4'; btn.classList.remove('active'); layers.ship=false;
+      btn.classList.remove('loading');
+      console.warn('Ships WS error');
       markSource('ship',false);
     };
-  } catch(e){ console.warn('Ships WS:',e); markSource('ship',false); }
+  } catch(e){ btn.classList.remove('loading'); console.warn('Ships WS:',e); markSource('ship',false); }
 }
 
-// ── 5. ISS ───────────────────────────────────────────────
+// ── 4. ISS ───────────────────────────────────────────────
 async function loadISS() {
   try {
     const r=await fetch('https://api.wheretheiss.at/v1/satellites/25544');
@@ -952,23 +662,10 @@ async function loadISS() {
       html:`<div style="position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;">
         <div style="position:absolute;width:26px;height:26px;border-radius:50%;border:1.5px solid #7ee787;opacity:0.4;animation:iss-ring 2s ease-out infinite;"></div>
         <div style="font-size:15px;filter:drop-shadow(0 0 4px #7ee787);cursor:pointer;">&#128752;</div>
-      </div><style>@keyframes iss-ring{0%{transform:scale(0.8);opacity:0.7}100%{transform:scale(2.2);opacity:0}}
-@media (max-width: 1500px) {
-  .header-inner,
-  .bottom { max-width: 1440px; }
-  .middle { grid-template-columns: 240px minmax(0, 960px) 240px; }
-}
-
-@media (max-width: 1320px) {
-  .header-inner { flex-wrap: wrap; padding: 8px 0; }
-  .middle { grid-template-columns: 220px minmax(0, 1fr) 220px; }
-  .bottom { grid-template-columns: repeat(4, minmax(0,1fr)); }
-}
-
-</style>`,
+      </div><style>@keyframes iss-ring{0%{transform:scale(0.8);opacity:0.7}100%{transform:scale(2.2);opacity:0}}</style>`,
       className:'',iconSize:[26,26],iconAnchor:[13,13],
     });
-    if(markers.iss){ markers.iss.setLatLng([lat,lng]); }
+    if(markers.iss) { markers.iss.setLatLng([lat,lng]); }
     else {
       markers.iss=L.marker([lat,lng],{icon,zIndexOffset:1000});
       markers.iss.on('mouseover',e=>showPop(e.originalEvent.clientX,e.originalEvent.clientY,'&#128752; ISS — Zarya',[
@@ -984,96 +681,7 @@ async function loadISS() {
   } catch(e){ console.warn('ISS:',e); markSource('iss',false); }
 }
 
-// ── 6. SATELLITES (KeepTrack API + satellite.js) ─────────
-async function loadSatellites() {
-  const btn=document.querySelector('[data-layer="sat"]'); btn.classList.add('loading');
-  try {
-    // Fetch TLE groups: Starlink, Weather sats, GPS
-    const groups=[
-      {name:'starlink', url:'https://celestrak.org/SOCRATES/query.php?CODE=starlink&FORMAT=json', fallback:'https://celestrak.org/SOCRATES/'},
-      // Use CelesTrak JSON TLE feed directly
-    ];
-
-    // CelesTrak — no auth, CORS-open, returns TLE data as JSON
-    const [starlinkRes, weatherRes, gpsRes] = await Promise.all([
-      fetch('https://celestrak.org/SOCRATES/query.php?CODE=starlink&FORMAT=json').catch(()=>null),
-      fetch('https://celestrak.org/SOCRATES/query.php?CODE=weather&FORMAT=json').catch(()=>null),
-      fetch('https://celestrak.org/SOCRATES/query.php?CODE=gps-ops&FORMAT=json').catch(()=>null),
-    ]);
-
-    // Use KeepTrack API for satellite positions
-    // Fetch a sample of notable satellites
-    const satIds = [
-      25544, // ISS (already shown)
-      48274, // Starlink representative
-      25338, // NOAA-15
-      28654, // NOAA-18
-      33591, // NOAA-19
-      32060, // GPS BIIR-2
-    ];
-
-    const satData = await Promise.all(
-      satIds.slice(1).map(id =>
-        fetch(`https://api.keeptrack.space/v2/sat/${id}`)
-          .then(r=>r.ok?r.json():null)
-          .catch(()=>null)
-      )
-    );
-
-    const validSats = satData.filter(Boolean);
-
-    // Simple SGP4 position estimation using epoch + mean motion
-    // For display we use approximate positions based on TLE data
-    clearLayer('sat');
-    let plotted = 0;
-
-    validSats.forEach(sat => {
-      if (!sat?.TLE_LINE1 || !sat?.TLE_LINE2) return;
-      // Extract approximate position from TLE mean motion
-      // This is a simplified display — not precise orbital mechanics
-      try {
-        const inc = parseFloat(sat.TLE_LINE2.substring(8,16));
-        const raan = parseFloat(sat.TLE_LINE2.substring(17,25));
-        const meanAnomaly = parseFloat(sat.TLE_LINE2.substring(43,51));
-        // Very rough position estimate for visual display
-        const lat = Math.sin((meanAnomaly * Math.PI/180)) * inc * 0.9;
-        const lng = (raan + meanAnomaly) % 360 - 180;
-        if (isNaN(lat)||isNaN(lng)) return;
-
-        const icon = L.divIcon({
-          html:`<div style="width:6px;height:6px;border-radius:50%;background:#79c0ff;border:1px solid #79c0ff88;cursor:pointer;"></div>`,
-          className:'',iconSize:[6,6],iconAnchor:[3,3],
-        });
-        const m = L.marker([lat,lng],{icon});
-        m.on('mouseover',e=>showPop(e.originalEvent.clientX,e.originalEvent.clientY,`&#127785; ${sat.OBJECT_NAME||'Satellite'}`,[
-          `NORAD: ${sat.NORAD_CAT_ID}`,
-          `Inclination: ${inc.toFixed(1)}°`,
-          `Type: ${sat.OBJECT_TYPE||'Payload'}`,
-        ]));
-        m.on('mouseout',hidePop);
-        if(layers.sat) m.addTo(map);
-        markers.sat.push(m);
-        plotted++;
-      } catch {}
-    });
-
-    // Update counts
-    document.getElementById('cnt-sat').textContent = plotted;
-    document.getElementById('s-sat').textContent = plotted;
-    document.getElementById('b-sat').textContent = plotted;
-    document.getElementById('sat-starlink').textContent = '~7000';
-    document.getElementById('sat-weather').textContent = '~20';
-    document.getElementById('sat-gps').textContent = '31';
-    markSource('sat',true);
-  } catch(e){
-    console.warn('Satellites:',e);
-    document.getElementById('cnt-sat').textContent='—';
-    markSource('sat',false);
-  }
-  btn.classList.remove('loading');
-}
-
-// ── 7. NOAA ──────────────────────────────────────────────
+// ── 5. NOAA ──────────────────────────────────────────────
 async function loadNOAA() {
   const btn=document.querySelector('[data-layer="noaa"]'); btn.classList.add('loading');
   try {
@@ -1082,8 +690,7 @@ async function loadNOAA() {
     const alerts=d.features||[];
     document.getElementById('cnt-noaa').textContent=alerts.length;
     document.getElementById('s-noaa').textContent=alerts.length;
-    const noaaEl=document.getElementById('noaa-list');
-    noaaEl.innerHTML=alerts.length
+    document.getElementById('noaa-list').innerHTML=alerts.length
       ? alerts.slice(0,5).map(a=>`<div class="noaa-item">&#9888; ${a.properties?.event||'Alert'}: ${(a.properties?.areaDesc||'').split(';')[0]}</div>`).join('')
       : '<div class="noaa-none">No active severe alerts</div>';
     clearLayer('noaa');
@@ -1106,14 +713,14 @@ async function loadNOAA() {
       m.on('mouseout',hidePop);
       if(layers.noaa) m.addTo(map);
       markers.noaa.push(m);
+      addFeed('noaa',`${a.properties?.event||'Alert'}: ${(a.properties?.areaDesc||'').split(';')[0]}`,`Severity: ${a.properties?.severity||'—'}`,lat,lng);
     });
-    markSource('noaa',true);
-    updateGlobalStatus();
-  } catch(e){console.warn('NOAA:',e); markSource('noaa',false);}
+    markSource('noaa',true); updateGlobalStatus();
+  } catch(e){ console.warn('NOAA:',e); markSource('noaa',false); }
   btn.classList.remove('loading');
 }
 
-// ── 8. SOLAR ─────────────────────────────────────────────
+// ── 6. SOLAR (via proxy — no key in browser) ──────────────
 const STYPES={CME:'CME',FLR:'Flare',GST:'G-Storm',SEP:'SEP'};
 async function loadSolar() {
   try {
@@ -1122,15 +729,17 @@ async function loadSolar() {
     const results=[];
     for(const t of ['CME','FLR','GST','SEP']){
       try{
-        const r=await fetch(`https://api.nasa.gov/DONKI/${t}?startDate=${start}&endDate=${end}&api_key=${NASA_KEY}`);
+        const url=`${SOLAR_BASE}/${t}?startDate=${start}&endDate=${end}`;
+        const r=await fetch(url);
         const d=await r.json();
         if(Array.isArray(d)) d.slice(0,3).forEach(ev=>results.push({type:t,...ev}));
-        await new Promise(r=>setTimeout(r,500));
+        await new Promise(r=>setTimeout(r,300));
       }catch{}
     }
     results.sort((a,b)=>new Date(b.beginTime||b.startTime||0)-new Date(a.beginTime||a.startTime||0));
     document.getElementById('cnt-solar').textContent=results.length;
     document.getElementById('s-solar').textContent=results.length;
+    document.getElementById('b-solar').textContent=results.length;
     document.getElementById('solar-list').innerHTML=results.length
       ? results.slice(0,5).map(ev=>{
           const t=new Date(ev.beginTime||ev.startTime||ev.eventTime).toUTCString().slice(5,16);
@@ -1139,13 +748,12 @@ async function loadSolar() {
         }).join('')
       : '<div class="noaa-none">No events in last 7 days</div>';
     markSource('solar',true);
-  } catch(e){console.warn('Solar:',e); markSource('solar',false);}
+  } catch(e){ console.warn('Solar:',e); markSource('solar',false); }
 }
 
-// ── 9. ASTRONAUTS ─────────────────────────────────────────
+// ── 7. ASTRONAUTS ────────────────────────────────────────
 async function loadAstronauts() {
   try {
-    // Use HTTPS proxy since open-notify is HTTP only
     const r=await fetch('https://corsproxy.io/?url=http://api.open-notify.org/astros.json');
     const d=await r.json();
     document.getElementById('s-crew').textContent=d.number||'—';
@@ -1160,23 +768,21 @@ async function loadAstronauts() {
 
 // ── INIT ─────────────────────────────────────────────────
 async function init() {
-  await Promise.all([loadQuakes(), loadEonet(), loadNOAA(), loadSolar()]);
+  setTimeout(hideLoader, 10000); // Fallback loader hide
+  await Promise.all([loadQuakes(), loadEonet(), loadNOAA()]);
   await loadISS();
-  await loadFlights();
-  await loadSatellites();
+  await loadSolar();
   connectShips();
   loadAstronauts();
   updateGlobalStatus();
   hideLoader();
 }
 
-setInterval(loadISS,      10000);
-setInterval(loadFlights,  120000);
-setInterval(loadQuakes,   300000);
-setInterval(loadEonet,    300000);
-setInterval(loadNOAA,     300000);
-setInterval(loadSolar,    1800000);
-setInterval(loadSatellites, 3600000);
+setInterval(loadISS,    10000);
+setInterval(loadQuakes, 300000);
+setInterval(loadEonet,  300000);
+setInterval(loadNOAA,   300000);
+setInterval(loadSolar,  1800000);
 
 init();
 </script>
