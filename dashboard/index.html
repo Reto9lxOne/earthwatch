@@ -10,7 +10,6 @@
 <style>
 :root {
   --bg:      #0d1117;
-  --content-width: 1620px;
   --surface: #161b22;
   --panel:   #1c2333;
   --border:  #21262d;
@@ -50,18 +49,20 @@ body {
 
 /* ── HEADER ── */
 header {
-  background: var(--surface);
+  background: linear-gradient(180deg, rgba(22,27,34,0.96), rgba(22,27,34,0.88));
   border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  padding: 0 14px;
   z-index: 100;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.18);
 }
 
 .header-inner {
-  width: min(100%, var(--content-width));
-  height: 48px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: 1620px;
   display: flex;
   align-items: center;
-  padding: 0 14px;
   gap: 12px;
   min-width: 0;
 }
@@ -78,13 +79,47 @@ header {
   50%{box-shadow:0 0 0 6px rgba(63,185,80,0.08);}
 }
 .logo h1 { font-size:14px; font-weight:700; letter-spacing:0.05em; color:var(--bright); }
-.logo-tag {
-  font-family:var(--mono); font-size:9px; color:var(--ok);
-  background:rgba(63,185,80,0.1); border:1px solid rgba(63,185,80,0.3);
-  padding:1px 7px; border-radius:4px;
+.logo-tag,
+.global-status {
+  font-family:var(--mono); font-size:9px;
+  padding:2px 8px; border-radius:999px;
+  border:1px solid rgba(63,185,80,0.3);
+  background:rgba(63,185,80,0.1);
+  color:var(--ok);
+  letter-spacing:0.08em;
 }
 
-.layer-bar { display:flex; gap:5px; flex:1; min-width:0; overflow-x:auto; scrollbar-width:none; }
+.global-status {
+  margin-left: 2px;
+  transition: all 0.2s ease;
+}
+
+.global-status.calm {
+  color: var(--ok);
+  border-color: rgba(63,185,80,0.35);
+  background: rgba(63,185,80,0.10);
+}
+
+.global-status.elevated {
+  color: var(--solar);
+  border-color: rgba(227,179,65,0.35);
+  background: rgba(227,179,65,0.10);
+}
+
+.global-status.active {
+  color: var(--eonet);
+  border-color: rgba(251,143,68,0.35);
+  background: rgba(251,143,68,0.10);
+}
+
+.global-status.high {
+  color: var(--quake);
+  border-color: rgba(248,81,73,0.40);
+  background: rgba(248,81,73,0.12);
+  box-shadow: 0 0 16px rgba(248,81,73,0.12);
+}
+
+.layer-bar { display:flex; gap:5px; flex:1; overflow-x:auto; scrollbar-width:none; min-width:0; }
 .layer-bar::-webkit-scrollbar { display:none; }
 
 .lchip {
@@ -101,10 +136,10 @@ header {
 .lchip.loading .sp { display:block; }
 .lchip.loading .d  { display:none; }
 @keyframes spin { to { transform:rotate(360deg); } }
-.lchip.active { color:var(--bright); background:var(--panel); }
+.lchip.active { color:var(--bright); background:var(--panel); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), 0 0 12px rgba(121,192,255,0.06); }
 .lchip .cnt { font-family:var(--mono); font-size:9px; color:var(--muted); }
 
-.header-right { display:flex; gap:8px; align-items:center; flex-shrink:0; min-width:0; }
+.header-right { display:flex; gap:8px; align-items:center; flex-shrink:0; margin-left:auto; }
 .grafana-btn {
   display:flex; align-items:center; gap:5px;
   padding:4px 10px; border-radius:5px;
@@ -122,7 +157,7 @@ header {
   grid-template-columns: 260px minmax(0, 1100px) 260px;
   justify-content: center;
   overflow: hidden;
-  min-height: 0;
+  gap: 0;
 }
 
 /* ── LEFT PANEL ── */
@@ -152,7 +187,7 @@ header {
 /* Panel sections */
 .section {
   border-bottom: 1px solid var(--border);
-  padding: 10px 12px;
+  padding: 12px 14px;
   flex-shrink: 0;
 }
 .section-title {
@@ -164,6 +199,8 @@ header {
 .section-title .badge {
   font-family: var(--mono); font-size: 10px;
   color: var(--bright); font-weight: 500;
+  flex-shrink: 0;
+  margin-left: 8px;
 }
 
 /* Stat rows */
@@ -172,24 +209,21 @@ header {
   align-items: baseline;
   justify-content: space-between;
   gap: 10px;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
   min-width: 0;
 }
-.stat-label {
-  font-size: 12px;
-  color: var(--muted);
-  min-width: 0;
-}
+.stat-label { font-size: 12px; color: var(--muted); min-width: 0; }
 .stat-val {
   font-family: var(--mono);
   font-size: 15px;
   font-weight: 500;
   color: var(--bright);
   text-align: right;
-  flex-shrink: 0;
-  max-width: 55%;
+  max-width: 58%;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 /* Big number */
@@ -210,29 +244,29 @@ header {
 /* Feed */
 .feed-list { display:flex; flex-direction:column; gap:0; }
 .feed-item {
-  padding: 6px 0;
+  padding: 8px 0;
   border-bottom: 1px solid rgba(33,38,45,0.6);
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
 }
-.feed-item:hover { background: rgba(255,255,255,0.02); margin: 0 -12px; padding: 6px 12px; }
+.feed-item:hover { background: rgba(255,255,255,0.02); margin: 0 -14px; padding: 8px 14px; transform: translateX(1px); }
 .feed-item:last-child { border-bottom: none; }
 .feed-item-title {
   font-size: 11px;
   color: var(--bright);
-  line-height: 1.3;
+  line-height: 1.35;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   display: block;
   width: 100%;
-  max-width: 100%;
 }
 .feed-item-sub {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--muted);
-  margin-top: 2px;
-  display: block;
+  font-family:var(--mono);
+  font-size:9px;
+  color:var(--muted);
+  margin-top:3px;
+  display:block;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -263,6 +297,9 @@ header {
   overflow: hidden;
   min-width: 0;
   min-height: 0;
+  border-left: 1px solid rgba(255,255,255,0.03);
+  border-right: 1px solid rgba(255,255,255,0.03);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.03), inset 0 20px 50px rgba(0,0,0,0.16);
 }
 #map {
   width: 100%;
@@ -300,232 +337,42 @@ header {
 .mpop-meta { font-family:var(--mono); font-size:10px; color:var(--muted); display:flex; flex-direction:column; gap:2px; }
 
 /* ── BOTTOM BAR ── */
-.bottom {
-  background: var(--border);
+.bottom-wrap {
+  display: flex;
+  justify-content: center;
+  background: linear-gradient(0deg, rgba(22,27,34,0.96), rgba(22,27,34,0.88));
   border-top: 1px solid var(--border);
+  box-shadow: 0 -10px 30px rgba(0,0,0,0.18);
 }
 
-.bottom-inner {
-  width: min(100%, var(--content-width));
-  margin: 0 auto;
+.bottom {
+  width: 100%;
+  max-width: 1620px;
   display: grid;
-  grid-template-columns: 220px repeat(5, minmax(0, 1fr)) 220px;
+  grid-template-columns: 220px repeat(5,minmax(0,1fr)) 220px;
+  background: var(--border);
   gap: 1px;
 }
-
 .bpanel {
   background: var(--surface);
-  padding: 8px 14px;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-  overflow: hidden;
-}
-.bpanel-label { font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); }
-.bpanel-val { font-family:var(--mono); font-size:22px; font-weight:500; line-height:1; color:var(--bright); }
-.bpanel-sub {
-  font-family: var(--mono);
-  font-size: 9px;
-  color: var(--muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-
-/* ── RESPONSIVE ── */
-html, body {
-  width: 100%;
-  max-width: 100%;
-}
-
-header, .middle, .bottom {
-  width: 100%;
-  max-width: 100%;
-}
-
-.layer-bar {
+  padding: 10px 14px;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
   min-width: 0;
 }
-
-.header-right,
-.clock,
-.logo,
-.grafana-btn {
-  flex-shrink: 0;
-}
-
-.left-panel,
-.right-panel {
-  min-width: 0;
-}
-
-.stat-row {
-  gap: 10px;
-  min-width: 0;
-}
-
-.stat-label {
-  min-width: 0;
-}
-
-.stat-val {
-  text-align: right;
-  flex-shrink: 0;
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.feed-item-title,
-.feed-item-sub,
-.bpanel-label,
-.bpanel-sub,
-.bpanel-val {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.feed-item-title,
-.feed-item-sub,
-.bpanel-label,
-.bpanel-sub {
-  white-space: nowrap;
-}
-
-.bpanel {
-  min-width: 0;
-}
+.bpanel-label { font-size:9px; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bpanel-val { font-family:var(--mono); font-size:24px; font-weight:500; line-height:1; color:var(--bright); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bpanel-sub { font-family:var(--mono); font-size:9px; color:var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 1500px) {
-  .middle {
-    grid-template-columns: 230px minmax(0, 1fr) 230px;
-  }
-
-  .bottom {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-
-  .bpanel-val {
-    font-size: 18px;
-  }
+  .header-inner,
+  .bottom { max-width: 1440px; }
+  .middle { grid-template-columns: 240px minmax(0, 960px) 240px; }
 }
 
-@media (max-width: 1200px) {
-  .app {
-    grid-template-rows: auto 1fr auto;
-  }
-
-  header {
-    flex-wrap: wrap;
-    align-items: flex-start;
-    row-gap: 8px;
-    padding-top: 8px;
-    padding-bottom: 8px;
-    height: auto;
-  }
-
-  .layer-bar {
-    order: 3;
-    flex: 1 1 100%;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  .middle {
-    grid-template-columns: 220px minmax(0, 1fr) 220px;
-  }
-
-  .section-title {
-    font-size: 10px;
-  }
-
-  .stat-label {
-    font-size: 11px;
-  }
-
-  .stat-val {
-    font-size: 13px;
-  }
-
-  .bottom {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 900px) {
-  body {
-    overflow: auto;
-  }
-
-  .app {
-    height: auto;
-    min-height: 100vh;
-  }
-
-  .middle {
-    grid-template-columns: 1fr;
-  }
-
-  .left-panel,
-  .right-panel {
-    border-left: none;
-    border-right: none;
-    border-top: 1px solid var(--border);
-  }
-
-  .map-wrap {
-    min-height: 55vh;
-    order: -1;
-  }
-
-  .bottom {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .bpanel {
-    min-height: 72px;
-  }
-}
-
-@media (max-width: 640px) {
-  header {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
-  .logo h1 {
-    font-size: 13px;
-  }
-
-  .logo-tag,
-  .clock,
-  .grafana-btn,
-  .lchip {
-    font-size: 10px;
-  }
-
-  .middle {
-    gap: 0;
-  }
-
-  .section {
-    padding: 9px 10px;
-  }
-
-  .iss-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .bottom {
-    grid-template-columns: 1fr;
-  }
-
-  .bpanel-val {
-    font-size: 20px;
-  }
+@media (max-width: 1320px) {
+  .header-inner { flex-wrap: wrap; padding: 8px 0; }
+  .middle { grid-template-columns: 220px minmax(0, 1fr) 220px; }
+  .bottom { grid-template-columns: repeat(4, minmax(0,1fr)); }
 }
 
 </style>
@@ -536,13 +383,14 @@ header, .middle, .bottom {
 <!-- HEADER -->
 <header>
   <div class="header-inner">
-  <div class="logo">
-    <div class="logo-dot"></div>
-    <h1>EARTHWATCH</h1>
-    <span class="logo-tag">LIVE</span>
-  </div>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      <h1>EARTHWATCH</h1>
+      <span class="logo-tag">LIVE</span>
+      <span class="global-status calm" id="global-status">CALM</span>
+    </div>
 
-  <div class="layer-bar">
+    <div class="layer-bar">
     <button class="lchip active" data-layer="quake"><div class="d" style="background:var(--quake)"></div><div class="sp"></div>Earthquakes<span class="cnt" id="cnt-quake">—</span></button>
     <button class="lchip active" data-layer="eonet"><div class="d" style="background:var(--eonet)"></div><div class="sp"></div>Events<span class="cnt" id="cnt-eonet">—</span></button>
     <button class="lchip active" data-layer="flight"><div class="d" style="background:var(--flight)"></div><div class="sp"></div>Flights<span class="cnt" id="cnt-flight">—</span></button>
@@ -553,10 +401,10 @@ header, .middle, .bottom {
     <button class="lchip active" data-layer="solar"><div class="d" style="background:var(--solar)"></div><div class="sp"></div>Solar<span class="cnt" id="cnt-solar">—</span></button>
   </div>
 
-  <div class="header-right">
-    <a class="grafana-btn" href="https://grafana.9lx.io" target="_blank">&#128200; Grafana</a>
-    <div class="clock"><span class="t" id="clock">—</span><span id="dateline">—</span></div>
-  </div>
+    <div class="header-right">
+      <a class="grafana-btn" href="https://grafana.9lx.io" target="_blank">&#128200; Grafana</a>
+      <div class="clock"><span class="t" id="clock">—</span><span id="dateline">—</span></div>
+    </div>
   </div>
 </header>
 
@@ -692,8 +540,8 @@ header, .middle, .bottom {
 </div>
 
 <!-- BOTTOM BAR -->
+<div class="bottom-wrap">
 <div class="bottom">
-  <div class="bottom-inner">
   <div class="bpanel" style="border-right:1px solid var(--border)">
     <div class="bpanel-label">Last Updated</div>
     <div class="bpanel-val" id="b-updated" style="font-size:16px;color:var(--ok)">—</div>
@@ -729,7 +577,7 @@ header, .middle, .bottom {
     <div class="bpanel-val" style="color:var(--iss)" id="b-issvel">—</div>
     <div class="bpanel-sub">km/h orbital</div>
   </div>
-  </div>
+</div>
 </div>
 </div>
 
@@ -829,6 +677,34 @@ function markSource(key, ok) {
   document.getElementById('b-updated').textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
 }
 
+
+function updateGlobalStatus() {
+  const quakeCount = Number(document.getElementById('cnt-quake')?.textContent || 0) || 0;
+  const eventCount = Number(document.getElementById('cnt-eonet')?.textContent || 0) || 0;
+  const noaaCount = Number(document.getElementById('cnt-noaa')?.textContent || 0) || 0;
+  const maxMagText = document.getElementById('s-maxmag')?.textContent || '';
+  const maxMag = parseFloat(maxMagText.replace('M', '')) || 0;
+
+  let label = 'CALM';
+  let cls = 'calm';
+
+  if (maxMag >= 7 || noaaCount >= 10 || eventCount >= 120) {
+    label = 'HIGH ACTIVITY';
+    cls = 'high';
+  } else if (maxMag >= 6 || noaaCount >= 5 || eventCount >= 70 || quakeCount >= 180) {
+    label = 'ACTIVE';
+    cls = 'active';
+  } else if (maxMag >= 5 || noaaCount >= 1 || eventCount >= 30 || quakeCount >= 90) {
+    label = 'ELEVATED';
+    cls = 'elevated';
+  }
+
+  const el = document.getElementById('global-status');
+  if (!el) return;
+  el.textContent = label;
+  el.className = `global-status ${cls}`;
+}
+
 // ── FEED ─────────────────────────────────────────────────
 function addFeed(layer, title, sub, lat, lng) {
   feed.unshift({layer,title,sub,lat,lng});
@@ -896,6 +772,7 @@ async function loadQuakes() {
       addFeed('quake',`M${mag.toFixed(1)} ${f.properties.place||''}`,new Date(f.properties.time).toUTCString().slice(5,22),lat,lng);
     });
     markSource('quake',true);
+    updateGlobalStatus();
   } catch(e){console.warn('Quakes:',e); markSource('quake',false);}
   btn.classList.remove('loading');
 }
@@ -946,6 +823,7 @@ async function loadEonet() {
       markers.eonet.push(m);
     });
     markSource('eonet',true);
+    updateGlobalStatus();
   } catch(e){console.warn('EONET:',e); markSource('eonet',false);}
   btn.classList.remove('loading');
 }
@@ -1075,198 +953,16 @@ async function loadISS() {
         <div style="position:absolute;width:26px;height:26px;border-radius:50%;border:1.5px solid #7ee787;opacity:0.4;animation:iss-ring 2s ease-out infinite;"></div>
         <div style="font-size:15px;filter:drop-shadow(0 0 4px #7ee787);cursor:pointer;">&#128752;</div>
       </div><style>@keyframes iss-ring{0%{transform:scale(0.8);opacity:0.7}100%{transform:scale(2.2);opacity:0}}
-
-/* ── RESPONSIVE ── */
-html, body {
-  width: 100%;
-  max-width: 100%;
-}
-
-header, .middle, .bottom {
-  width: 100%;
-  max-width: 100%;
-}
-
-.layer-bar {
-  min-width: 0;
-}
-
-.header-right,
-.clock,
-.logo,
-.grafana-btn {
-  flex-shrink: 0;
-}
-
-.left-panel,
-.right-panel {
-  min-width: 0;
-}
-
-.stat-row {
-  gap: 10px;
-  min-width: 0;
-}
-
-.stat-label {
-  min-width: 0;
-}
-
-.stat-val {
-  text-align: right;
-  flex-shrink: 0;
-  max-width: 55%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.feed-item-title,
-.feed-item-sub,
-.bpanel-label,
-.bpanel-sub,
-.bpanel-val {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.feed-item-title,
-.feed-item-sub,
-.bpanel-label,
-.bpanel-sub {
-  white-space: nowrap;
-}
-
-.bpanel {
-  min-width: 0;
-}
-
 @media (max-width: 1500px) {
-  .middle {
-    grid-template-columns: 230px minmax(0, 1fr) 230px;
-  }
-
-  .bottom {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
-
-  .bpanel-val {
-    font-size: 18px;
-  }
+  .header-inner,
+  .bottom { max-width: 1440px; }
+  .middle { grid-template-columns: 240px minmax(0, 960px) 240px; }
 }
 
-@media (max-width: 1200px) {
-  .app {
-    grid-template-rows: auto 1fr auto;
-  }
-
-  header {
-    flex-wrap: wrap;
-    align-items: flex-start;
-    row-gap: 8px;
-    padding-top: 8px;
-    padding-bottom: 8px;
-    height: auto;
-  }
-
-  .layer-bar {
-    order: 3;
-    flex: 1 1 100%;
-    overflow-x: auto;
-    padding-bottom: 2px;
-  }
-
-  .middle {
-    grid-template-columns: 220px minmax(0, 1fr) 220px;
-  }
-
-  .section-title {
-    font-size: 10px;
-  }
-
-  .stat-label {
-    font-size: 11px;
-  }
-
-  .stat-val {
-    font-size: 13px;
-  }
-
-  .bottom {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 900px) {
-  body {
-    overflow: auto;
-  }
-
-  .app {
-    height: auto;
-    min-height: 100vh;
-  }
-
-  .middle {
-    grid-template-columns: 1fr;
-  }
-
-  .left-panel,
-  .right-panel {
-    border-left: none;
-    border-right: none;
-    border-top: 1px solid var(--border);
-  }
-
-  .map-wrap {
-    min-height: 55vh;
-    order: -1;
-  }
-
-  .bottom {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .bpanel {
-    min-height: 72px;
-  }
-}
-
-@media (max-width: 640px) {
-  header {
-    padding-left: 10px;
-    padding-right: 10px;
-  }
-
-  .logo h1 {
-    font-size: 13px;
-  }
-
-  .logo-tag,
-  .clock,
-  .grafana-btn,
-  .lchip {
-    font-size: 10px;
-  }
-
-  .middle {
-    gap: 0;
-  }
-
-  .section {
-    padding: 9px 10px;
-  }
-
-  .iss-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .bottom {
-    grid-template-columns: 1fr;
-  }
-
-  .bpanel-val {
-    font-size: 20px;
-  }
+@media (max-width: 1320px) {
+  .header-inner { flex-wrap: wrap; padding: 8px 0; }
+  .middle { grid-template-columns: 220px minmax(0, 1fr) 220px; }
+  .bottom { grid-template-columns: repeat(4, minmax(0,1fr)); }
 }
 
 </style>`,
@@ -1412,6 +1108,7 @@ async function loadNOAA() {
       markers.noaa.push(m);
     });
     markSource('noaa',true);
+    updateGlobalStatus();
   } catch(e){console.warn('NOAA:',e); markSource('noaa',false);}
   btn.classList.remove('loading');
 }
@@ -1469,6 +1166,7 @@ async function init() {
   await loadSatellites();
   connectShips();
   loadAstronauts();
+  updateGlobalStatus();
   hideLoader();
 }
 
