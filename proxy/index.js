@@ -31,7 +31,7 @@ function fetchUrl(url) {
 
 // ── AIS Ship State ───────────────────────────────────────
 const shipState = new Map();
-const MAX_SHIPS = 2000;
+const MAX_SHIPS = 500;
 const dashClients = new Set();
 
 function broadcastShip(vessel) {
@@ -54,11 +54,11 @@ function connectAIS() {
 
   aisWs.on('open', () => {
     console.log('AIS stream connected');
-    aisWs.send(JSON.stringify({
-      APIKey: AIS_TOKEN,
-      MessageTypes: ['PositionReport', 'ShipStaticData'],
-      BoundingBoxes: [[[-90, -180], [90, 180]]],
-    }));
+  aisWs.send(JSON.stringify({
+  APIKey: AIS_TOKEN,
+  MessageTypes: ['PositionReport', 'ShipStaticData'],
+  BoundingBoxes: [[[30, -15], [65, 35]]],
+}));
   });
 
   aisWs.on('message', (raw) => {
