@@ -8,7 +8,7 @@ const AIS_TOKEN = process.env.AISSTREAM_TOKEN || '';
 // ── REST Routes (ADSB) ───────────────────────────────────
 const ROUTES = {
   '/adsb/': {
-    target: 'http://api.airplanes.live/v2/point/47/8/2000',
+    target: 'https://api.airplanes.live/v2/point/47/8/2000',
     ttl: 30,
   },
 };
