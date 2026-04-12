@@ -593,6 +593,7 @@ const NASA_KEY = 'DEMO_KEY';
 const layers  = { quake:true, eonet:true, flight:true, ship:true, sat:true, iss:true, noaa:true, solar:true };
 const markers = { quake:[], eonet:[], flight:[], ship:[], sat:[], noaa:[], iss:null };
 const shipMarkers = new Map();
+const MAX_VISIBLE_SHIPS = 500;
 const feed = [];
 const sources = {};
 
@@ -871,23 +872,43 @@ function shipCol(nav){return nav===1?'#e3b341':nav===5?'#6e7681':'#3fb950';}
 
 function addOrUpdateShip(v) {
   if (v.lat == null || v.lon == null) return;
-  if(shipMarkers.has(v.mmsi)){shipMarkers.get(v.mmsi).setLatLng([v.lat,v.lon]); return;}
-  const col=shipCol(v.navStatus);
-  const icon=L.divIcon({
-    html:`<div style="width:8px;height:8px;border-radius:50%;background:${col};border:1px solid ${col}88;box-shadow:0 0 4px ${col}55;cursor:pointer;"></div>`,
-    className:'',iconSize:[8,8],iconAnchor:[4,4],
+
+  if (shipMarkers.has(v.mmsi)) {
+    shipMarkers.get(v.mmsi).setLatLng([v.lat, v.lon]);
+    return;
+  }
+
+  const col = shipCol(v.navStatus);
+  const icon = L.divIcon({
+    html: `<div style="width:8px;height:8px;border-radius:50%;background:${col};border:1px solid ${col}88;box-shadow:0 0 4px ${col}55;cursor:pointer;"></div>`,
+    className: '',
+    iconSize: [8, 8],
+    iconAnchor: [4, 4],
   });
-  const m=L.marker([v.lat,v.lon],{icon});
-  const name=v.name||v.mmsi||'Unknown';
-  const typeLbl=SHIP_TYPES[Math.floor((v.shipType||0)/10)*10]||'Vessel';
-  m.on('mouseover',e=>showPop(e.originalEvent.clientX,e.originalEvent.clientY,`&#9875; ${name}`,[
+
+  const m = L.marker([v.lat, v.lon], { icon });
+  const name = v.name || v.mmsi || 'Unknown';
+  const typeLbl = SHIP_TYPES[Math.floor((v.shipType || 0) / 10) * 10] || 'Vessel';
+
+  m.on('mouseover', e => showPop(e.originalEvent.clientX, e.originalEvent.clientY, `&#9875; ${name}`, [
     `Type: ${typeLbl} | MMSI: ${v.mmsi}`,
-    `Speed: ${v.sog?.toFixed(1)||'—'} kts`,
-    `Dest: ${v.destination||'—'}`,
+    `Speed: ${v.sog?.toFixed(1) || '—'} kts`,
+    `Dest: ${v.destination || '—'}`,
   ]));
-  m.on('mouseout',hidePop);
-  if(layers.ship) m.addTo(map);
-  shipMarkers.set(v.mmsi,m);
+  m.on('mouseout', hidePop);
+
+  if (layers.ship) m.addTo(map);
+  shipMarkers.set(v.mmsi, m);
+
+  // Limit visible ships
+  if (shipMarkers.size > MAX_VISIBLE_SHIPS) {
+    const oldestKey = shipMarkers.keys().next().value;
+    const oldestMarker = shipMarkers.get(oldestKey);
+    if (oldestMarker) {
+      oldestMarker.remove();
+    }
+    shipMarkers.delete(oldestKey);
+  }
 }
 
 function updateShipCount() {
