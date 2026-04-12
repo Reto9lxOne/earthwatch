@@ -118,7 +118,7 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
 
   if (req.url === '/ships/snapshot') {
-    const ships = [...shipState.values()].filter(s => s.lat && s.lon);
+    const ships = [...shipState.values()].filter(s => s.lat != null && s.lon != null);
     res.writeHead(200);
     res.end(JSON.stringify({ count: ships.length, ships }));
     return;
@@ -162,7 +162,7 @@ const wss = new WebSocketServer({ server, path: '/ws/ships' });
 
 wss.on('connection', (ws) => {
   dashClients.add(ws);
-  const ships = [...shipState.values()].filter(s => s.lat && s.lon);
+  const ships = [...shipState.values()].filter(s => s.lat != null && s.lon != null);
   ws.send(JSON.stringify({ type: 'snapshot', ships }));
   ws.on('close', () => dashClients.delete(ws));
   ws.on('error', () => dashClients.delete(ws));

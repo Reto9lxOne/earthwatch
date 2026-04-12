@@ -870,7 +870,7 @@ const SHIP_TYPES={30:'Fishing',36:'Sailing',37:'Pleasure',60:'Passenger',70:'Car
 function shipCol(nav){return nav===1?'#e3b341':nav===5?'#6e7681':'#3fb950';}
 
 function addOrUpdateShip(v) {
-  if(!v.lat||!v.lon) return;
+  if (v.lat == null || v.lon == null) return;
   if(shipMarkers.has(v.mmsi)){shipMarkers.get(v.mmsi).setLatLng([v.lat,v.lon]); return;}
   const col=shipCol(v.navStatus);
   const icon=L.divIcon({
