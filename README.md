@@ -10,34 +10,36 @@ Live planet dashboard — real-time natural events, earthquakes, air quality, so
 | **earthwatch-ui** | Live map dashboard | https://earthwatch.9lx.io |
 | **grafana** | Analytics + Alerts | https://grafana.9lx.io |
 | **collector** | API poller → TimescaleDB | internal |
-| **proxy** | ADSB CORS proxy | internal |
+| **proxy** | ADSB + AIS Ship Proxy | internal |
 | **timescaledb** | Time-series database | internal |
 
 ## Data Sources
 
-| Layer | API | Poll Interval | Status |
+| Layer | API | Mode | Status |
 |---|---|---|---|
-| 🔴 Earthquakes | USGS GeoJSON Feed | 5 min | ✅ Active |
-| 🌋 Natural Events | NASA EONET | 5 min | ✅ Active |
-| ☀️ Solar Activity | NASA DONKI | 5 min | ✅ Active |
-| 💨 Air Quality | OpenAQ v3 | 5 min | ⏸ Disabled (needs free API key) |
-| ✈️ Flights | airplanes.live (via proxy) | live | ✅ Active |
+| 🔴 Earthquakes | USGS GeoJSON Feed | Poll 5min | ✅ Active |
+| 🌋 Natural Events | NASA EONET | Poll 5min | ✅ Active |
+| ☀️ Solar Activity | NASA DONKI | Poll 5min | ✅ Active |
+| ✈️ Flights | airplanes.live (via proxy) | Poll 2min | ✅ Active |
+| 🚢 Ships | aisstream.io (via WebSocket proxy) | Live | ✅ Active |
+| 🛸 ISS | wheretheiss.at | Poll 10s | ✅ Active |
+| 🌩 NOAA Alerts | api.weather.gov | Poll 5min | ✅ Active |
+| 💨 Air Quality | OpenAQ v3 | Poll 5min | ⏸ Disabled (needs free API key) |
 
 ## Quick Start
 
 ### 1. VM Setup (Ubuntu 24.04)
 ```bash
-# On fresh VM
 sudo ./setup.sh
 # Re-login after setup (docker group)
-exit && ssh 
+exit && ssh localadmin@<VM-IP>
 ```
 
 ### 2. Clone repo
 ```bash
 sudo mkdir /opt/earthwatch
 sudo chown localadmin:localadmin /opt/earthwatch
-git clone https://github.com/Reto9lxOne/earthwatch /opt/earthwatch
+git clone https://github.com/<USERNAME>/earthwatch /opt/earthwatch
 cd /opt/earthwatch
 ```
 
@@ -53,8 +55,9 @@ DB_PASSWORD=strong_password
 GRAFANA_PASSWORD=strong_password
 TELEGRAM_BOT_TOKEN=your_bot_token
 TELEGRAM_CHAT_ID=your_chat_id
-NASA_API_KEY=your_nasa_key        # get free at api.nasa.gov
-OPENAQ_API_KEY=your_openaq_key    # get free at explore.openaq.org/register
+NASA_API_KEY=your_nasa_key          # get free at api.nasa.gov
+OPENAQ_API_KEY=your_openaq_key      # get free at explore.openaq.org/register
+AISSTREAM_TOKEN=your_aisstream_key  # get free at aisstream.io
 ```
 
 ### 4. Configure Telegram in Grafana provisioning
@@ -68,8 +71,8 @@ nano grafana/provisioning/alerting/telegram.yml
 
 Replace the placeholders with your actual values:
 ```yaml
-bottoken: "1234567890:ABCdefGHI..."   # your bot token from @BotFather
-chatid: "31791262"                     # your chat ID
+bottoken: "your_bot_token"   # from @BotFather on Telegram
+chatid: "your_chat_id"       # must be a string with quotes!
 ```
 
 To get your Chat ID:
@@ -80,22 +83,39 @@ To get your Chat ID:
 
 ### 5. SSL Certificates
 ```bash
-# Copy your wildcard cert
 cp /opt/nginx/ssl/fullchain.pem /opt/earthwatch/nginx/ssl/
 cp /opt/nginx/ssl/privkey.pem   /opt/earthwatch/nginx/ssl/
 ```
 
-### 6. Fix docker-compose.yml NASA key
-Make sure `docker-compose.yml` uses the env variable (not hardcoded):
-```yaml
-NASA_API_KEY: ${NASA_API_KEY}   # ← must be this, not DEMO_KEY
-```
-
-### 7. Start
+### 6. Start
 ```bash
 docker compose up -d
 docker compose logs -f
 ```
+
+---
+
+## Ship Tracking (aisstream.io)
+
+Ships are tracked via a WebSocket proxy — the AIS token stays on the server, never exposed in the browser.
+
+**How it works:**
+```
+aisstream.io WebSocket → proxy container → /ws/ships → nginx → dashboard
+```
+
+**Setup:**
+1. Register free at **aisstream.io**
+2. Get your API token from account settings
+3. Add to `.env`: `AISSTREAM_TOKEN=your_token`
+4. Rebuild proxy: `docker compose up -d --build proxy`
+
+**Endpoints provided by proxy:**
+- `wss://earthwatch.9lx.io/ws/ships` — live WebSocket stream
+- `https://earthwatch.9lx.io/api/ships/snapshot` — REST snapshot
+- `https://earthwatch.9lx.io/api/health` — proxy health check
+
+---
 
 ## Enable Air Quality (OpenAQ)
 
@@ -114,37 +134,34 @@ Air quality is disabled by default. To enable:
    ```
 6. Rebuild: `docker compose up -d --build collector`
 
+---
+
 ## Telegram Alerts
 
 Configured alerts:
 - 🔴 Earthquake M5.0+
 - 🚨 Major Earthquake M7.0+
 - 🌊 Tsunami Warning
-- 💨 Poor Air Quality (PM2.5 > 55) — when AQ enabled
 - ☀️ Geomagnetic Storm (Kp5+)
 - ⚠️ Collector not running for 30 min
+- 💨 Poor Air Quality (PM2.5 > 55) — when AQ enabled
+
+---
 
 ## Known Issues & Fixes
 
-### Grafana crashes on start
-**Cause:** Telegram Bot Token not set in provisioning file
-**Fix:** Edit `grafana/provisioning/alerting/telegram.yml` and set real values (see step 4 above)
+| Issue | Cause | Fix |
+|---|---|---|
+| Grafana crashes on start | Telegram token not set in `telegram.yml` | Enter token manually (see step 4) |
+| `chatid` parse error in Grafana | chatid must be a string | Use quotes: `chatid: "123456"` |
+| worldmap-panel Angular warning | Deprecated Angular plugin | Non-critical, ignore |
+| NASA Solar HTTP 429 | `DEMO_KEY` hardcoded in compose | Use `NASA_API_KEY: ${NASA_API_KEY}` |
+| OpenAQ HTTP 410 Gone | v2 API retired Jan 2025 | v3 used now, needs free API key |
+| Flights show `—` | airplanes.live rate limit | Auto-retry every 2 min |
+| Map shows border/gap | Leaflet world wrap limitation | Known issue, TODO: D3.js map |
+| Alert rules YAML error | Invalid time range in provisioning | `rules.yml` disabled, configure via Grafana UI |
 
-### worldmap-panel Angular warning
-**Cause:** `grafana-worldmap-panel` uses deprecated Angular framework
-**Status:** Non-critical warning, does not affect functionality. Will be replaced with a modern map panel.
-
-### NASA Solar — HTTP 429 Rate Limit
-**Cause:** DEMO_KEY hardcoded in `docker-compose.yml`
-**Fix:** Change `NASA_API_KEY: DEMO_KEY` to `NASA_API_KEY: ${NASA_API_KEY}` in `docker-compose.yml`
-
-### OpenAQ — HTTP 410 Gone
-**Cause:** v2 API was retired January 2025
-**Fix:** Collector now uses v3 API — requires free API key from explore.openaq.org
-
-### Flights — ERR
-**Cause:** All public ADS-B APIs block direct browser requests (CORS) without account
-**Fix:** Proxy running internally at `/api/adsb/` — served via nginx
+---
 
 ## VM Specs
 
@@ -154,6 +171,8 @@ Configured alerts:
 | RAM | 4 GB |
 | Disk | 200 GB |
 | OS | Ubuntu 24.04 LTS |
+
+---
 
 ## Directory Structure
 
@@ -165,14 +184,14 @@ earthwatch/
 ├── .gitignore
 ├── nginx/
 │   ├── nginx.conf
-│   └── ssl/           ← place certs here (not in git!)
+│   └── ssl/              ← place certs here (not in git!)
 ├── collector/
 │   ├── Dockerfile
-│   ├── index.js
+│   ├── index.js          ← polls USGS, EONET, DONKI, OpenAQ
 │   └── package.json
 ├── proxy/
 │   ├── Dockerfile
-│   ├── index.js
+│   ├── index.js          ← ADSB REST + AIS WebSocket proxy
 │   └── package.json
 ├── db/
 │   └── init.sql
@@ -183,10 +202,13 @@ earthwatch/
 │       ├── dashboards/
 │       │   └── dashboards.yml
 │       └── alerting/
-│           ├── telegram.yml   ← enter real Telegram credentials here!
-│           └── rules.yml
-└── dashboard/         ← static HTML dashboard (gitignored build)
+│           ├── telegram.yml      ← enter real credentials here!
+│           └── rules.yml.disabled
+└── dashboard/
+    └── index.html                ← live map dashboard
 ```
+
+---
 
 ## Useful Commands
 
@@ -194,19 +216,22 @@ earthwatch/
 # Start all services
 docker compose up -d
 
-# View all logs
+# View logs
 docker compose logs -f
-
-# View specific service logs
 docker compose logs -f collector
+docker compose logs -f proxy
 docker compose logs -f grafana
-docker compose logs -f nginx
 
 # Restart single service
-docker compose restart grafana
+docker compose restart proxy
+docker compose restart nginx
 
 # Rebuild after code changes
+docker compose up -d --build proxy
 docker compose up -d --build collector
+
+# Check proxy health
+curl -k https://localhost/api/health
 
 # DB shell
 docker exec -it earthwatch-db psql -U earthwatch
@@ -221,3 +246,14 @@ docker exec -it earthwatch-db psql -U earthwatch -c \
 # Pull latest & redeploy
 git pull && docker compose up -d --build
 ```
+
+---
+
+## Open TODOs
+
+- [ ] Replace Leaflet map with D3.js — fix world wrap border issue
+- [ ] Build Grafana dashboards with TimescaleDB data
+- [ ] Add satellite layer (KeepTrack API — no key needed)
+- [ ] Set up automated DB backup to NAS
+- [ ] Enable OpenAQ air quality when account works
+- [ ] Add Watchtower for automatic container updates
