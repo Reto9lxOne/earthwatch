@@ -100,6 +100,7 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3000
+      AISSTREAM_TOKEN: ${AISSTREAM_TOKEN}
     networks:
       - earthwatch
 
