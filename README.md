@@ -1,6 +1,6 @@
 # 🌍 Earthwatch
 
-Live planet dashboard — real-time natural events, earthquakes, air quality, solar activity and more.
+Live planet dashboard — real-time natural events, earthquakes, solar activity and more.
 
 ## Stack
 
@@ -10,7 +10,7 @@ Live planet dashboard — real-time natural events, earthquakes, air quality, so
 | **earthwatch-ui** | Live map dashboard | https://earthwatch.9lx.io |
 | **grafana** | Analytics + Alerts | https://grafana.9lx.io |
 | **collector** | API poller → TimescaleDB | internal |
-| **proxy** | ADSB + AIS Ship Proxy | internal |
+| **proxy** | AIS Ship + NASA DONKI Proxy | internal |
 | **timescaledb** | Time-series database | internal |
 
 ## Data Sources
@@ -19,8 +19,7 @@ Live planet dashboard — real-time natural events, earthquakes, air quality, so
 |---|---|---|---|
 | 🔴 Earthquakes | USGS GeoJSON Feed | Poll 5min | ✅ Active |
 | 🌋 Natural Events | NASA EONET | Poll 5min | ✅ Active |
-| ☀️ Solar Activity | NASA DONKI | Poll 5min | ✅ Active |
-| ✈️ Flights | airplanes.live (via proxy) | Poll 2min | ✅ Active |
+| ☀️ Solar Activity | NASA DONKI (via proxy) | Poll 30min | ✅ Active |
 | 🚢 Ships | aisstream.io (via WebSocket proxy) | Live | ✅ Active |
 | 🛸 ISS | wheretheiss.at | Poll 10s | ✅ Active |
 | 🌩 NOAA Alerts | api.weather.gov | Poll 5min | ✅ Active |
@@ -117,6 +116,19 @@ aisstream.io WebSocket → proxy container → /ws/ships → nginx → dashboard
 
 ---
 
+## NASA DONKI Solar Proxy
+
+Solar activity data is fetched server-side — the NASA API key never appears in the browser or in git.
+
+**How it works:**
+```
+dashboard → /api/donki/{type} → proxy → api.nasa.gov (with key) → dashboard
+```
+
+**Endpoint:** `https://earthwatch.9lx.io/api/donki/{CME|FLR|GST|SEP}?startDate=...&endDate=...`
+
+---
+
 ## Enable Air Quality (OpenAQ)
 
 Air quality is disabled by default. To enable:
@@ -155,9 +167,7 @@ Configured alerts:
 | Grafana crashes on start | Telegram token not set in `telegram.yml` | Enter token manually (see step 4) |
 | `chatid` parse error in Grafana | chatid must be a string | Use quotes: `chatid: "123456"` |
 | worldmap-panel Angular warning | Deprecated Angular plugin | Non-critical, ignore |
-| NASA Solar HTTP 429 | `DEMO_KEY` hardcoded in compose | Use `NASA_API_KEY: ${NASA_API_KEY}` |
 | OpenAQ HTTP 410 Gone | v2 API retired Jan 2025 | v3 used now, needs free API key |
-| Flights show `—` | airplanes.live rate limit | Auto-retry every 2 min |
 | Map shows border/gap | Leaflet world wrap limitation | Known issue, TODO: D3.js map |
 | Alert rules YAML error | Invalid time range in provisioning | `rules.yml` disabled, configure via Grafana UI |
 
@@ -191,7 +201,7 @@ earthwatch/
 │   └── package.json
 ├── proxy/
 │   ├── Dockerfile
-│   ├── index.js          ← ADSB REST + AIS WebSocket proxy
+│   ├── index.js          ← AIS WebSocket + NASA DONKI proxy
 │   └── package.json
 ├── db/
 │   └── init.sql
@@ -231,7 +241,7 @@ docker compose up -d --build proxy
 docker compose up -d --build collector
 
 # Check proxy health
-curl -k https://localhost/api/health
+curl -k https://earthwatch.9lx.io/api/health
 
 # DB shell
 docker exec -it earthwatch-db psql -U earthwatch
@@ -253,7 +263,6 @@ git pull && docker compose up -d --build
 
 - [ ] Replace Leaflet map with D3.js — fix world wrap border issue
 - [ ] Build Grafana dashboards with TimescaleDB data
-- [ ] Add satellite layer (KeepTrack API — no key needed)
 - [ ] Set up automated DB backup to NAS
 - [ ] Enable OpenAQ air quality when account works
 - [ ] Add Watchtower for automatic container updates
