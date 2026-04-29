@@ -10,6 +10,7 @@ nginx/ssl/*.pem
 node_modules/
 collector/node_modules/
 proxy/node_modules/
+web-next/node_modules/
 
 # Logs
 *.log
@@ -18,3 +19,8 @@ logs/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local agent files
+.codex
+.codex/
+AGENTS.md

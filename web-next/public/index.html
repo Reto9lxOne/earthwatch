@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Earthwatch</title>
+  <meta
+    name="description"
+    content="Live situational view of earthquakes, natural events, ships, solar activity, NOAA alerts, and the ISS."
+  >
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet"
+  >
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  >
+  <link rel="stylesheet" href="/assets/app.css?v=20260429h">
+</head>
+<body>
+  <div class="page-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Earth systems monitor</p>
+        <div class="brand-row">
+          <h1>Earthwatch</h1>
+          <span class="status-pill" id="global-status">Loading</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="clock-card">
+          <span class="clock-label">UTC</span>
+          <strong id="clock-value">--:--:--</strong>
+        </div>
+        <a class="grafana-link" href="https://grafana.9lx.io" target="_blank" rel="noreferrer">Grafana</a>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="rail rail-left">
+        <article class="panel panel-hero">
+          <p class="panel-label">System overview</p>
+          <div class="metric-grid">
+            <div>
+              <span class="metric-label">Collector health</span>
+              <strong class="metric-value" id="collector-health">--</strong>
+            </div>
+            <div>
+              <span class="metric-label">Last refresh</span>
+              <strong class="metric-value" id="last-refresh">--</strong>
+            </div>
+            <div>
+              <span class="metric-label">Ships stream</span>
+              <strong class="metric-value metric-value-compact" id="ship-stream-status">--</strong>
+            </div>
+            <div>
+              <span class="metric-label">Map mode</span>
+              <strong class="metric-value metric-value-compact">Wrapped</strong>
+            </div>
+          </div>
+          <div class="chip-row" id="collector-list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <p class="panel-label">Seismic activity</p>
+            <span class="panel-badge" id="quake-count">--</span>
+          </div>
+          <div class="stat-pair">
+            <span>Strongest in 24h</span>
+            <strong id="quake-max">--</strong>
+          </div>
+          <p class="stat-caption" id="quake-place">Waiting for data</p>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <p class="panel-label">Natural events</p>
+            <span class="panel-badge" id="event-count">--</span>
+          </div>
+          <div class="stacked-stats">
+            <div class="stat-pair"><span>Wildfires</span><strong id="wildfire-count">--</strong></div>
+            <div class="stat-pair"><span>Severe storms</span><strong id="storm-count">--</strong></div>
+            <div class="stat-pair"><span>Volcanoes</span><strong id="volcano-count">--</strong></div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <p class="panel-label">ISS</p>
+            <span class="panel-badge" id="iss-visibility">--</span>
+          </div>
+          <div class="iss-grid">
+            <div><span>Latitude</span><strong id="iss-lat">--</strong></div>
+            <div><span>Longitude</span><strong id="iss-lon">--</strong></div>
+            <div><span>Altitude</span><strong id="iss-alt">--</strong></div>
+            <div><span>Velocity</span><strong id="iss-vel">--</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <section class="map-column">
+        <div class="map-card">
+          <div class="map-toolbar">
+            <div class="layer-toggles">
+              <button class="layer-chip is-active" data-layer="earthquakes">Earthquakes</button>
+              <button class="layer-chip is-active" data-layer="events">Events</button>
+              <button class="layer-chip is-active" data-layer="ships">Ships</button>
+              <button class="layer-chip is-active" data-layer="iss">ISS</button>
+              <button class="layer-chip is-active" data-layer="alerts">Alerts</button>
+            </div>
+            <p class="map-caption">Server-backed layers, ship snapshot fallback, and tighter world bounds for cleaner wrap behavior.</p>
+          </div>
+          <div id="map"></div>
+          <div class="map-overlay" id="map-loading">Loading live layers...</div>
+        </div>
+        <div class="ticker-grid">
+          <article class="ticker-card">
+            <span>Solar events</span>
+            <strong id="solar-count">--</strong>
+          </article>
+          <article class="ticker-card">
+            <span>NOAA alerts</span>
+            <strong id="alert-count">--</strong>
+          </article>
+          <article class="ticker-card">
+            <span>Ships online</span>
+            <strong id="ship-count">--</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="rail rail-right">
+        <article class="panel">
+          <div class="panel-header">
+            <p class="panel-label">Solar feed</p>
+            <span class="panel-badge" id="solar-feed-count">--</span>
+          </div>
+          <div class="list-block" id="solar-list">
+            <p class="empty-state">Waiting for solar activity</p>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
+            <p class="panel-label">NOAA alerts</p>
+            <span class="panel-badge" id="alert-feed-count">--</span>
+          </div>
+          <div class="list-block" id="alert-list">
+            <p class="empty-state">Waiting for alerts</p>
+          </div>
+        </article>
+
+        <article class="panel panel-feed">
+          <div class="panel-header">
+            <p class="panel-label">Activity feed</p>
+            <span class="panel-badge">Live</span>
+          </div>
+          <div class="list-block" id="activity-feed">
+            <p class="empty-state">Waiting for events</p>
+          </div>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+  <script src="/assets/app.js?v=20260429h" type="module"></script>
+</body>
+</html>
