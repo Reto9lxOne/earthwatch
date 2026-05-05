@@ -6,6 +6,11 @@ nginx/ssl/*.crt
 nginx/ssl/*.key
 nginx/ssl/*.pem
 
+
+# Python
+__pycache__/
+*.py[cod]
+
 # Node
 node_modules/
 collector/node_modules/
