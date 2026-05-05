@@ -134,6 +134,23 @@ services:
     networks:
       - earthwatch
 
+  # ---------------------------------------------------------------
+  # Docker Status Collector - Docker inventory and health metrics
+  # ---------------------------------------------------------------
+  docker-status-collector:
+    build: ./docker-status-collector
+    container_name: earthwatch-docker-status-collector
+    restart: unless-stopped
+    environment:
+      COLLECTOR_HOSTNAME: prd-eaw01
+      CACHE_TTL_SECONDS: "10"
+    ports:
+      - "8081:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - earthwatch
+
 volumes:
   timescaledb_data:
   grafana_data:
