@@ -151,6 +151,23 @@ services:
     networks:
       - earthwatch
 
+  # ─────────────────────────────────────
+  # NODE EXPORTER — Host metrics
+  # ─────────────────────────────────────
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    container_name: earthwatch-node-exporter
+    hostname: prd-eaw01
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+    ports:
+      - "9100:9100"
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - earthwatch
+
 volumes:
   timescaledb_data:
   grafana_data:
