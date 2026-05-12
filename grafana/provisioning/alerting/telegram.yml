@@ -10,11 +10,13 @@ contactPoints:
           bottoken: "${TELEGRAM_BOT_TOKEN}"
           chatid: "${TELEGRAM_CHAT_ID}"
           message: |
-            🚨 *Earthwatch Alert*
-            {{ range .Alerts }}
-            *{{ .Labels.alertname }}*
-            {{ .Annotations.summary }}
+            {{ if eq .Status "firing" }}🚨{{ else }}✅{{ end }} *Earthwatch — {{ (index .Alerts 0).Labels.alertname }}*
+
+            {{ range .Alerts }}{{ .Annotations.summary }}
+            {{ if .Annotations.location }}📍 {{ .Annotations.location }}{{ end }}
+            🕐 {{ .StartsAt.UTC.Format "02 Jan 2006 15:04 UTC" }}
             {{ end }}
+            🌍 https://earthwatch.9lx.app
         disableResolveMessage: false
 
 policies:

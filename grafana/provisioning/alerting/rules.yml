@@ -19,10 +19,15 @@ groups:
             datasourceUid: timescaledb
             model:
               rawSql: |
-                SELECT COUNT(*) AS count
+                SELECT
+                  place     AS location,
+                  ROUND(magnitude::numeric, 1)::text AS magnitude,
+                  1         AS value
                 FROM earthquakes
                 WHERE time > NOW() - INTERVAL '1 hour'
                   AND magnitude >= 5.0
+                ORDER BY magnitude DESC
+                LIMIT 1
               format: table
               refId: A
           - refId: C
@@ -31,26 +36,18 @@ groups:
               to: 0
             datasourceUid: "__expr__"
             model:
-              type: threshold
+              type: reduce
               refId: C
               expression: A
-              conditions:
-                - evaluator:
-                    type: gt
-                    params: [0]
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    type: last
-                  type: query
+              reducer: last
+              settings:
+                mode: dropNN
         noDataState: OK
         execErrState: OK
         for: 0m
         annotations:
-          summary: "Strong earthquake M5.0+ detected"
-          description: "A strong earthquake was detected. Check https://earthwatch.9lx.app for details."
+          summary: "Erdbeben M{{ $labels.magnitude }} erkannt"
+          location: "{{ $labels.location }}"
         labels:
           severity: warning
           category: earthquake
@@ -68,10 +65,15 @@ groups:
             datasourceUid: timescaledb
             model:
               rawSql: |
-                SELECT COUNT(*) AS count
+                SELECT
+                  place     AS location,
+                  ROUND(magnitude::numeric, 1)::text AS magnitude,
+                  1         AS value
                 FROM earthquakes
                 WHERE time > NOW() - INTERVAL '1 hour'
                   AND magnitude >= 7.0
+                ORDER BY magnitude DESC
+                LIMIT 1
               format: table
               refId: A
           - refId: C
@@ -80,26 +82,18 @@ groups:
               to: 0
             datasourceUid: "__expr__"
             model:
-              type: threshold
+              type: reduce
               refId: C
               expression: A
-              conditions:
-                - evaluator:
-                    type: gt
-                    params: [0]
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    type: last
-                  type: query
+              reducer: last
+              settings:
+                mode: dropNN
         noDataState: OK
         execErrState: OK
         for: 0m
         annotations:
-          summary: "MAJOR earthquake M7.0+ detected!"
-          description: "A major earthquake was recorded. Tsunami risk possible. Check https://earthwatch.9lx.app"
+          summary: "MAJOR Erdbeben M{{ $labels.magnitude }} — Tsunami möglich!"
+          location: "{{ $labels.location }}"
         labels:
           severity: critical
           category: earthquake
@@ -117,10 +111,15 @@ groups:
             datasourceUid: timescaledb
             model:
               rawSql: |
-                SELECT COUNT(*) AS count
+                SELECT
+                  place     AS location,
+                  ROUND(magnitude::numeric, 1)::text AS magnitude,
+                  1         AS value
                 FROM earthquakes
                 WHERE time > NOW() - INTERVAL '1 hour'
                   AND tsunami = true
+                ORDER BY magnitude DESC
+                LIMIT 1
               format: table
               refId: A
           - refId: C
@@ -129,26 +128,18 @@ groups:
               to: 0
             datasourceUid: "__expr__"
             model:
-              type: threshold
+              type: reduce
               refId: C
               expression: A
-              conditions:
-                - evaluator:
-                    type: gt
-                    params: [0]
-                  operator:
-                    type: and
-                  query:
-                    params: [A]
-                  reducer:
-                    type: last
-                  type: query
+              reducer: last
+              settings:
+                mode: dropNN
         noDataState: OK
         execErrState: OK
         for: 0m
         annotations:
-          summary: "Tsunami warning issued!"
-          description: "A tsunami-generating earthquake was detected. Check https://earthwatch.9lx.app"
+          summary: "Tsunami-Warnung! Erdbeben M{{ $labels.magnitude }}"
+          location: "{{ $labels.location }}"
         labels:
           severity: critical
           category: tsunami
@@ -197,8 +188,7 @@ groups:
         execErrState: OK
         for: 0m
         annotations:
-          summary: "Geomagnetic storm Kp5+ detected"
-          description: "Strong solar activity may affect GPS, radio and power grids."
+          summary: "Geomagnetischer Sturm Kp5+ — GPS/Radio/Stromnetz betroffen"
         labels:
           severity: warning
           category: solar
@@ -246,8 +236,7 @@ groups:
         execErrState: Alerting
         for: 10m
         annotations:
-          summary: "Data collector has not run in 30 minutes"
-          description: "Check earthwatch-collector container logs on prd-eaw01."
+          summary: "Collector seit 30 Min. nicht aktiv — Daten veraltet"
         labels:
           severity: warning
           category: system
