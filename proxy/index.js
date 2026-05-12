@@ -12,7 +12,7 @@ const cache = new Map();
 function fetchUrl(url) {
   return new Promise((resolve, reject) => {
     const lib = url.startsWith('https') ? https : http;
-    lib.get(url, { timeout: 10000 }, res => {
+    lib.get(url, { timeout: 20000 }, res => {
       let data = '';
       res.on('data', chunk => data += chunk);
       res.on('end', () => {
@@ -21,6 +21,22 @@ function fetchUrl(url) {
       });
     }).on('error', reject).on('timeout', () => reject(new Error('Upstream timeout')));
   });
+}
+
+// ── Satellite TLE (via tle.ivanstanojevic.me) ────────────
+const TLE_APIS = {
+  starlink: ['https://tle.ivanstanojevic.me/api/tle/?search=starlink&page-size=100'],
+  weather:  ['https://tle.ivanstanojevic.me/api/tle/?search=noaa&page-size=50',
+             'https://tle.ivanstanojevic.me/api/tle/?search=goes&page-size=20',
+             'https://tle.ivanstanojevic.me/api/tle/?search=metop&page-size=20'],
+  stations: ['https://tle.ivanstanojevic.me/api/tle/25544',   // ISS
+             'https://tle.ivanstanojevic.me/api/tle/48274'],  // Tiangong
+};
+const tleCache = new Map();
+
+function parseTLEResponse(data) {
+  if (data.line1 && data.line2) return [{ name: data.name?.trim() || 'Unknown', tle1: data.line1, tle2: data.line2 }];
+  return (data.member || []).map(m => ({ name: m.name?.trim() || 'Unknown', tle1: m.line1, tle2: m.line2 }));
 }
 
 // ── AIS Ship State ───────────────────────────────────────
@@ -120,6 +136,26 @@ const server = http.createServer(async (req, res) => {
     const ships = [...shipState.values()].filter(s => s.lat != null && s.lon != null);
     res.writeHead(200);
     res.end(JSON.stringify({ count: ships.length, ships }));
+    return;
+  }
+
+  // Satellite TLE data
+  if (req.url.startsWith('/satellites/')) {
+    const group = req.url.replace('/satellites/', '').split('?')[0];
+    if (!TLE_APIS[group]) { res.writeHead(404); res.end(JSON.stringify({ error: 'Unknown group' })); return; }
+    const cached = tleCache.get(group);
+    if (cached && Date.now() - cached.ts < 3600000) {
+      res.writeHead(200, { 'X-Cache': 'HIT' }); res.end(JSON.stringify(cached.data)); return;
+    }
+    try {
+      const results = await Promise.all(TLE_APIS[group].map(u => fetchUrl(u)));
+      const sats = results.flatMap(parseTLEResponse);
+      tleCache.set(group, { data: sats, ts: Date.now() });
+      res.writeHead(200, { 'X-Cache': 'MISS' }); res.end(JSON.stringify(sats));
+    } catch (e) {
+      console.error('TLE fetch error:', e.message);
+      res.writeHead(502); res.end(JSON.stringify({ error: e.message }));
+    }
     return;
   }
 

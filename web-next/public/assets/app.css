@@ -251,6 +251,12 @@ h1 {
   background: rgba(103, 212, 255, 0.12);
 }
 
+.sat-chip.is-active {
+  border-color: rgba(126, 247, 184, 0.4);
+  background: rgba(126, 247, 184, 0.12);
+  color: #a8f5d0;
+}
+
 #map {
   height: min(68vh, 800px);
   border-radius: 16px;
@@ -261,133 +267,33 @@ h1 {
   background: #07131d;
 }
 
-.map-badge-icon,
-.iss-orbit-icon,
-.ship-dot-icon {
-  background: transparent;
-  border: 0;
-}
-
-.map-badge {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.28);
-  font-size: 11px;
+.event-icon-wrap,
+.ship-icon {
+  font-size: 14px;
   line-height: 1;
-  backdrop-filter: blur(8px);
+  filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.8));
 }
 
-.map-badge.is-fire {
-  background: rgba(255, 153, 102, 0.16);
-  color: #ffb089;
-  border-color: rgba(255, 153, 102, 0.34);
-}
-
-.map-badge.is-storm {
-  background: rgba(103, 212, 255, 0.16);
-  color: #8fe0ff;
-  border-color: rgba(103, 212, 255, 0.34);
-}
-
-.map-badge.is-volcano {
-  background: rgba(255, 107, 107, 0.16);
-  color: #ff9b9b;
-  border-color: rgba(255, 107, 107, 0.34);
-}
-
-.map-badge.is-ice {
-  background: rgba(161, 224, 255, 0.14);
-  color: #b4ebff;
-  border-color: rgba(161, 224, 255, 0.3);
-}
-
-.map-badge.is-drought {
-  background: rgba(255, 209, 102, 0.15);
-  color: #ffe198;
-  border-color: rgba(255, 209, 102, 0.34);
-}
-
-.map-badge.is-generic {
-  background: rgba(198, 167, 255, 0.14);
-  color: #d7c0ff;
-  border-color: rgba(198, 167, 255, 0.3);
-}
-
-.map-badge.is-alert-severe {
-  background: rgba(255, 107, 107, 0.16);
-  color: #ffaaaa;
-  border-color: rgba(255, 107, 107, 0.34);
-}
-
-.map-badge.is-alert-moderate {
-  background: rgba(255, 143, 92, 0.16);
-  color: #ffbe9d;
-  border-color: rgba(255, 143, 92, 0.34);
-}
-
-.map-badge.is-alert-default {
-  background: rgba(198, 167, 255, 0.14);
-  color: #d7c0ff;
-  border-color: rgba(198, 167, 255, 0.3);
-}
-
-.ship-dot {
-  width: 11px;
-  height: 11px;
-  transform: rotate(45deg);
-  border-radius: 2px;
-  background: rgba(126, 247, 184, 0.8);
-  border: 1px solid rgba(126, 247, 184, 0.95);
-  box-shadow: 0 0 0 4px rgba(126, 247, 184, 0.08);
-}
-
-.iss-orbit {
-  position: relative;
-  width: 26px;
-  height: 26px;
+.event-icon,
+.iss-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.iss-orbit::before,
-.iss-orbit::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  border: 1px solid rgba(103, 212, 255, 0.26);
-}
-
-.iss-orbit::before {
-  transform: rotate(18deg) scaleX(1.15);
-}
-
-.iss-orbit::after {
-  transform: rotate(-28deg) scaleY(0.78);
-}
-
-.iss-core {
-  position: relative;
-  z-index: 1;
-  width: 14px;
-  height: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  background: rgba(103, 212, 255, 0.18);
-  color: #a9e9ff;
-  border: 1px solid rgba(103, 212, 255, 0.4);
-  box-shadow: 0 0 12px rgba(103, 212, 255, 0.22);
-  font-size: 10px;
+  width: 28px;
+  height: 28px;
+  font-size: 18px;
   line-height: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.7));
 }
+
+.iss-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 22px;
+  filter: drop-shadow(0 0 8px rgba(103, 212, 255, 0.6)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.8));
+}
+
+
 
 .leaflet-control-zoom a {
   background: rgba(10, 24, 35, 0.92);

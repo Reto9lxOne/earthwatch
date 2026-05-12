@@ -20,6 +20,98 @@ const state = {
   shipSocket: null,
 };
 
+// ── Satellite Layers ──────────────────────────────────────
+const SAT_GROUPS = {
+  starlink: { color: '#67d4ff', markers: [], data: null, timer: null },
+  weather:  { color: '#ffd166', markers: [], data: null, timer: null },
+  stations: { color: '#7ef7b8', markers: [], data: null, timer: null },
+};
+
+function satPosition(tle1, tle2, date) {
+  const lib = window.satellite;
+  if (!lib) return null;
+  try {
+    const satrec = lib.twoline2satrec(tle1, tle2);
+    const pv = lib.propagate(satrec, date);
+    if (!pv || !pv.position) return null;
+    const gmst = lib.gstime(date);
+    const geo = lib.eciToGeodetic(pv.position, gmst);
+    return {
+      lat: lib.degreesLat(geo.latitude),
+      lon: lib.degreesLong(geo.longitude),
+      alt: Math.round(geo.height),
+    };
+  } catch { return null; }
+}
+
+function renderSatGroup(group) {
+  const g = SAT_GROUPS[group];
+  g.markers.forEach(m => m.remove());
+  g.markers = [];
+  if (!g.data) return;
+  const date = new Date();
+  const isStation = group === 'stations';
+  g.data.forEach(sat => {
+    const pos = satPosition(sat.tle1, sat.tle2, date);
+    if (!pos || pos.lat < -85 || pos.lat > 85) return;
+    let marker;
+    if (isStation) {
+      marker = L.marker([pos.lat, pos.lon], {
+        icon: createDivIcon('event-icon-wrap', `<div class="event-icon" aria-hidden="true">🛰️</div>`, 28),
+      });
+    } else {
+      marker = L.circleMarker([pos.lat, pos.lon], {
+        renderer: canvasRenderer,
+        radius: group === 'starlink' ? 2 : 3,
+        color: g.color,
+        weight: 0,
+        fillColor: g.color,
+        fillOpacity: group === 'starlink' ? 0.6 : 0.85,
+      });
+    }
+    bindHover(marker, sat.name, `Alt: ${pos.alt} km`);
+    marker.addTo(map);
+    g.markers.push(marker);
+  });
+}
+
+async function enableSatGroup(group) {
+  const g = SAT_GROUPS[group];
+  if (!g.data) {
+    const btn = document.querySelector(`[data-satellite="${group}"]`);
+    if (btn) btn.textContent = '…';
+    try {
+      g.data = await fetchJson(`/api/satellites/${group}`);
+    } catch (e) {
+      reportError(`satellites:${group}`, e);
+      if (btn) btn.textContent = { starlink: 'Starlink', weather: 'Weather Sats', stations: 'Stations' }[group];
+      return;
+    }
+    if (btn) btn.textContent = { starlink: 'Starlink', weather: 'Weather Sats', stations: 'Stations' }[group];
+  }
+  renderSatGroup(group);
+  g.timer = setInterval(() => renderSatGroup(group), 30000);
+}
+
+function disableSatGroup(group) {
+  const g = SAT_GROUPS[group];
+  g.markers.forEach(m => m.remove());
+  g.markers = [];
+  if (g.timer) { clearInterval(g.timer); g.timer = null; }
+}
+
+document.querySelectorAll('[data-satellite]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const group = btn.dataset.satellite;
+    const active = btn.classList.toggle('is-active');
+    if (active) {
+      enableSatGroup(group);
+    } else {
+      disableSatGroup(group);
+    }
+  });
+});
+
 const canvasRenderer = L.canvas({ padding: 0.4 });
 
 const map = L.map('map', {
@@ -46,10 +138,6 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   subdomains: 'abcd',
   minZoom: 1,
   maxZoom: 7,
-  bounds: [
-    [-85, -180],
-    [85, 180],
-  ],
   keepBuffer: 4,
   updateWhenZooming: false,
   updateWhenIdle: true,
@@ -153,17 +241,21 @@ function earthquakeColor(magnitude) {
 function naturalEventVisual(category) {
   switch (category) {
     case 'wildfires':
-      return { className: 'is-fire', symbol: 'F', label: 'Wildfire' };
+      return { emoji: '🔥', label: 'Wildfire' };
     case 'severeStorms':
-      return { className: 'is-storm', symbol: 'S', label: 'Severe storm' };
+      return { emoji: '⛈️', label: 'Severe storm' };
     case 'volcanoes':
-      return { className: 'is-volcano', symbol: 'V', label: 'Volcano' };
+      return { emoji: '🌋', label: 'Volcano' };
     case 'seaLakeIce':
-      return { className: 'is-ice', symbol: 'I', label: 'Sea or lake ice' };
+      return { emoji: '🧊', label: 'Sea or lake ice' };
     case 'drought':
-      return { className: 'is-drought', symbol: 'D', label: 'Drought' };
+      return { emoji: '☀️', label: 'Drought' };
+    case 'floods':
+      return { emoji: '🌊', label: 'Flood' };
+    case 'dustHaze':
+      return { emoji: '🌫️', label: 'Dust / Haze' };
     default:
-      return { className: 'is-generic', symbol: 'N', label: 'Natural event' };
+      return { emoji: '🌐', label: 'Natural event' };
   }
 }
 
@@ -171,27 +263,27 @@ function alertVisual(alert) {
   const eventName = (alert.properties?.event ?? '').toLowerCase();
   const severity = (alert.properties?.severity ?? '').toLowerCase();
 
-  if (eventName.includes('hurricane') || eventName.includes('tropical storm')) {
-    return { className: 'is-alert-severe', symbol: 'H', label: 'Cyclone alert' };
+  if (eventName.includes('hurricane') || eventName.includes('tropical storm') || eventName.includes('typhoon')) {
+    return { emoji: '🌀', label: 'Cyclone alert' };
   }
 
   if (eventName.includes('tornado')) {
-    return { className: 'is-alert-severe', symbol: 'T', label: 'Tornado alert' };
+    return { emoji: '🌪️', label: 'Tornado alert' };
   }
 
   if (eventName.includes('thunderstorm') || eventName.includes('storm')) {
-    return { className: 'is-alert-moderate', symbol: 'S', label: 'Storm alert' };
+    return { emoji: '⛈️', label: 'Storm alert' };
   }
 
   if (eventName.includes('flood')) {
-    return { className: 'is-alert-moderate', symbol: 'F', label: 'Flood alert' };
+    return { emoji: '🌊', label: 'Flood alert' };
   }
 
   if (severity === 'extreme' || severity === 'severe') {
-    return { className: 'is-alert-severe', symbol: '!', label: 'Severe alert' };
+    return { emoji: '⚠️', label: 'Severe alert' };
   }
 
-  return { className: 'is-alert-default', symbol: 'A', label: 'Alert' };
+  return { emoji: '🔔', label: 'Alert' };
 }
 
 async function fetchJson(url) {
@@ -317,8 +409,9 @@ async function loadNaturalEvents() {
     const visual = naturalEventVisual(feature.properties.category);
     const marker = L.marker([lat, lng], {
       icon: createDivIcon(
-        'map-badge-icon',
-        `<div class="map-badge ${visual.className}" aria-hidden="true">${visual.symbol}</div>`
+        'event-icon-wrap',
+        `<div class="event-icon" aria-hidden="true">${visual.emoji}</div>`,
+        28
       ),
     });
 
@@ -412,8 +505,9 @@ async function loadNoaaAlerts() {
     const visual = alertVisual(alert);
     const marker = L.marker(coordinates, {
       icon: createDivIcon(
-        'map-badge-icon',
-        `<div class="map-badge ${visual.className}" aria-hidden="true">${visual.symbol}</div>`
+        'event-icon-wrap',
+        `<div class="event-icon" aria-hidden="true">${visual.emoji}</div>`,
+        28
       ),
     });
 
@@ -447,9 +541,9 @@ async function loadIss() {
   } else {
     state.markers.iss = L.marker(latLng, {
       icon: createDivIcon(
-        'iss-orbit-icon',
-        '<div class="iss-orbit"><div class="iss-core">I</div></div>',
-        26
+        'event-icon-wrap',
+        '<div class="iss-icon" aria-hidden="true">🛰️</div>',
+        32
       ),
     });
     bindHover(
@@ -504,9 +598,9 @@ function upsertShip(ship) {
   if (!existing) {
     const marker = L.marker([ship.lat, ship.lon], {
       icon: createDivIcon(
-        'ship-dot-icon',
-        '<div class="ship-dot" aria-hidden="true"></div>',
-        11
+        'event-icon-wrap',
+        '<div class="ship-icon" aria-hidden="true">🚢</div>',
+        18
       ),
     });
 

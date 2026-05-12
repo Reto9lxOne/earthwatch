@@ -13,33 +13,46 @@ groups:
         condition: C
         data:
           - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
             datasourceUid: timescaledb
             model:
               rawSql: |
-                SELECT
-                  time AS "time",
-                  magnitude,
-                  place
+                SELECT COUNT(*) AS count
                 FROM earthquakes
-                WHERE $__timeFilter(time)
+                WHERE time > NOW() - INTERVAL '1 hour'
                   AND magnitude >= 5.0
-                ORDER BY time DESC
-                LIMIT 1
               format: table
+              refId: A
           - refId: C
+            relativeTimeRange:
+              from: 3600
+              to: 0
             datasourceUid: "__expr__"
             model:
-              type: reduce
-              reducer: last
+              type: threshold
+              refId: C
               expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
         noDataState: OK
-        execErrState: Error
+        execErrState: OK
         for: 0m
         annotations:
-          summary: "Earthquake M{{ $values.A.magnitude }} near {{ $values.A.place }}"
-          description: "A strong earthquake was detected. Check earthwatch.9lx.ch for details."
+          summary: "Strong earthquake M5.0+ detected"
+          description: "A strong earthquake was detected. Check https://earthwatch.9lx.app for details."
         labels:
-          severity: critical
+          severity: warning
           category: earthquake
         isPaused: false
 
@@ -49,32 +62,44 @@ groups:
         condition: C
         data:
           - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
             datasourceUid: timescaledb
             model:
               rawSql: |
                 SELECT COUNT(*) AS count
                 FROM earthquakes
-                WHERE $__timeFilter(time)
+                WHERE time > NOW() - INTERVAL '1 hour'
                   AND magnitude >= 7.0
               format: table
+              refId: A
           - refId: C
+            relativeTimeRange:
+              from: 3600
+              to: 0
             datasourceUid: "__expr__"
             model:
               type: threshold
+              refId: C
               expression: A
               conditions:
-                - type: query
-                  params: [A]
-                  operator: { type: and }
-                  query: { params: [A] }
-                  reducer: { type: last }
-                  evaluator: { type: gt, params: [0] }
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
+                  type: query
         noDataState: OK
-        execErrState: Error
+        execErrState: OK
         for: 0m
         annotations:
           summary: "MAJOR earthquake M7.0+ detected!"
-          description: "A major earthquake was recorded. Tsunami risk possible."
+          description: "A major earthquake was recorded. Tsunami risk possible. Check https://earthwatch.9lx.app"
         labels:
           severity: critical
           category: earthquake
@@ -86,71 +111,47 @@ groups:
         condition: C
         data:
           - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
             datasourceUid: timescaledb
             model:
               rawSql: |
                 SELECT COUNT(*) AS count
                 FROM earthquakes
-                WHERE $__timeFilter(time)
+                WHERE time > NOW() - INTERVAL '1 hour'
                   AND tsunami = true
               format: table
+              refId: A
           - refId: C
+            relativeTimeRange:
+              from: 3600
+              to: 0
             datasourceUid: "__expr__"
             model:
               type: threshold
+              refId: C
               expression: A
               conditions:
-                - evaluator: { type: gt, params: [0] }
-                  operator: { type: and }
-                  query: { params: [A] }
-                  reducer: { type: last }
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
                   type: query
         noDataState: OK
-        execErrState: Error
+        execErrState: OK
         for: 0m
         annotations:
           summary: "Tsunami warning issued!"
-          description: "A tsunami-generating earthquake was detected."
+          description: "A tsunami-generating earthquake was detected. Check https://earthwatch.9lx.app"
         labels:
           severity: critical
           category: tsunami
-        isPaused: false
-
-      # ── Poor Air Quality Alert ───────────────────────────
-      - uid: alert-air-quality-poor
-        title: "💨 Poor Air Quality PM2.5 > 55"
-        condition: C
-        data:
-          - refId: A
-            datasourceUid: timescaledb
-            model:
-              rawSql: |
-                SELECT COUNT(*) AS count
-                FROM air_quality
-                WHERE $__timeFilter(time)
-                  AND parameter = 'pm25'
-                  AND value > 55
-              format: table
-          - refId: C
-            datasourceUid: "__expr__"
-            model:
-              type: threshold
-              expression: A
-              conditions:
-                - evaluator: { type: gt, params: [5] }
-                  operator: { type: and }
-                  query: { params: [A] }
-                  reducer: { type: last }
-                  type: query
-        noDataState: OK
-        execErrState: Error
-        for: 15m
-        annotations:
-          summary: "Poor air quality detected at multiple stations"
-          description: "More than 5 stations report PM2.5 > 55 µg/m³ (Unhealthy level)"
-        labels:
-          severity: warning
-          category: air_quality
         isPaused: false
 
       # ── Solar Storm Alert ────────────────────────────────
@@ -159,32 +160,45 @@ groups:
         condition: C
         data:
           - refId: A
+            relativeTimeRange:
+              from: 21600
+              to: 0
             datasourceUid: timescaledb
             model:
               rawSql: |
                 SELECT COUNT(*) AS count
                 FROM solar_events
-                WHERE $__timeFilter(time)
+                WHERE time > NOW() - INTERVAL '6 hours'
                   AND event_type = 'GST'
                   AND kp_index >= 5
               format: table
+              refId: A
           - refId: C
+            relativeTimeRange:
+              from: 21600
+              to: 0
             datasourceUid: "__expr__"
             model:
               type: threshold
+              refId: C
               expression: A
               conditions:
-                - evaluator: { type: gt, params: [0] }
-                  operator: { type: and }
-                  query: { params: [A] }
-                  reducer: { type: last }
+                - evaluator:
+                    type: gt
+                    params: [0]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
                   type: query
         noDataState: OK
-        execErrState: Error
+        execErrState: OK
         for: 0m
         annotations:
-          summary: "Geomagnetic storm Kp{{ $values.A }} detected"
-          description: "Strong solar activity may affect GPS, radio communications and power grids."
+          summary: "Geomagnetic storm Kp5+ detected"
+          description: "Strong solar activity may affect GPS, radio and power grids."
         labels:
           severity: warning
           category: solar
@@ -196,6 +210,9 @@ groups:
         condition: C
         data:
           - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
             datasourceUid: timescaledb
             model:
               rawSql: |
@@ -204,23 +221,33 @@ groups:
                 WHERE time > NOW() - INTERVAL '30 minutes'
                   AND success = true
               format: table
+              refId: A
           - refId: C
+            relativeTimeRange:
+              from: 3600
+              to: 0
             datasourceUid: "__expr__"
             model:
               type: threshold
+              refId: C
               expression: A
               conditions:
-                - evaluator: { type: lt, params: [1] }
-                  operator: { type: and }
-                  query: { params: [A] }
-                  reducer: { type: last }
+                - evaluator:
+                    type: lt
+                    params: [1]
+                  operator:
+                    type: and
+                  query:
+                    params: [A]
+                  reducer:
+                    type: last
                   type: query
         noDataState: Alerting
         execErrState: Alerting
         for: 10m
         annotations:
           summary: "Data collector has not run in 30 minutes"
-          description: "Check earthwatch-collector container logs."
+          description: "Check earthwatch-collector container logs on prd-eaw01."
         labels:
           severity: warning
           category: system

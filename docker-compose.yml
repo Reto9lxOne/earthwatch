@@ -52,14 +52,17 @@ services:
     container_name: earthwatch-grafana
     restart: unless-stopped
     environment:
-      GF_SERVER_DOMAIN: grafana.9lx.io
-      GF_SERVER_ROOT_URL: https://grafana.9lx.io
+      GF_SERVER_DOMAIN: eaw-dash.9lx.app
+      GF_SERVER_ROOT_URL: https://eaw-dash.9lx.app
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
-      GF_INSTALL_PLUGINS: grafana-worldmap-panel,grafana-clock-panel
+      GF_INSTALL_PLUGINS: grafana-clock-panel
       # Telegram alerting
       GF_ALERTING_ENABLED: "true"
+      DB_PASSWORD: ${DB_PASSWORD}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID}
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
@@ -67,6 +70,8 @@ services:
     depends_on:
       timescaledb:
         condition: service_healthy
+    ports:
+      - "3000:3000"
     networks:
       - earthwatch
 

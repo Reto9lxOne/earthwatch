@@ -20,7 +20,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   >
-  <link rel="stylesheet" href="/assets/app.css?v=20260429h">
+  <link rel="stylesheet" href="/assets/app.css?v=20260512e">
 </head>
 <body>
   <div class="page-shell">
@@ -37,7 +37,7 @@
           <span class="clock-label">UTC</span>
           <strong id="clock-value">--:--:--</strong>
         </div>
-        <a class="grafana-link" href="https://grafana.9lx.io" target="_blank" rel="noreferrer">Grafana</a>
+        <a class="grafana-link" href="https://eaw-dash.9lx.app" target="_blank" rel="noreferrer">Grafana</a>
       </div>
     </header>
 
@@ -113,6 +113,9 @@
               <button class="layer-chip is-active" data-layer="ships">Ships</button>
               <button class="layer-chip is-active" data-layer="iss">ISS</button>
               <button class="layer-chip is-active" data-layer="alerts">Alerts</button>
+              <button class="layer-chip sat-chip" data-satellite="starlink">Starlink</button>
+              <button class="layer-chip sat-chip" data-satellite="weather">Weather Sats</button>
+              <button class="layer-chip sat-chip" data-satellite="stations">Stations</button>
             </div>
             <p class="map-caption">Server-backed layers, ship snapshot fallback, and tighter world bounds for cleaner wrap behavior.</p>
           </div>
@@ -174,6 +177,7 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
-  <script src="/assets/app.js?v=20260429h" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js"></script>
+  <script src="/assets/app.js?v=20260512f" type="module"></script>
 </body>
 </html>
