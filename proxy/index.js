@@ -159,6 +159,42 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // EONET Natural Events
+  if (req.url === '/events') {
+    const cacheKey = 'eonet_events';
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < 300000) {
+      res.writeHead(200, { 'X-Cache': 'HIT' }); res.end(JSON.stringify(cached.data)); return;
+    }
+    try {
+      const data = await fetchUrl('https://eonet.gsfc.nasa.gov/api/v3/events?status=open&limit=20');
+      cache.set(cacheKey, { data, ts: Date.now() });
+      res.writeHead(200, { 'X-Cache': 'MISS' }); res.end(JSON.stringify(data));
+    } catch (e) {
+      console.error('EONET error:', e.message);
+      res.writeHead(502); res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
+  // USGS Earthquakes — significant events last 7 days
+  if (req.url === '/earthquakes') {
+    const cacheKey = 'usgs_earthquakes';
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < 300000) {
+      res.writeHead(200, { 'X-Cache': 'HIT' }); res.end(JSON.stringify(cached.data)); return;
+    }
+    try {
+      const data = await fetchUrl('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_week.geojson');
+      cache.set(cacheKey, { data, ts: Date.now() });
+      res.writeHead(200, { 'X-Cache': 'MISS' }); res.end(JSON.stringify(data));
+    } catch (e) {
+      console.error('USGS error:', e.message);
+      res.writeHead(502); res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // NASA DONKI proxy — key stays on server
   // Route: /donki/CME?startDate=...&endDate=...
   if (req.url.startsWith('/donki/')) {
