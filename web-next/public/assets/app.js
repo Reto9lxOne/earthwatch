@@ -561,6 +561,8 @@ async function loadLightningPotential() {
 
   if (markerVisible('lightning')) {
     heatLayer.addTo(map);
+    // Prevent the heatmap canvas from blocking mouse events on markers below
+    if (heatLayer._canvas) heatLayer._canvas.style.pointerEvents = 'none';
   }
 }
 
@@ -847,6 +849,7 @@ document.querySelectorAll('[data-layer]').forEach((button) => {
     if (layer === 'lightning' && heatLayer) {
       if (state.layers.lightning) {
         heatLayer.addTo(map);
+        if (heatLayer._canvas) heatLayer._canvas.style.pointerEvents = 'none';
       } else {
         heatLayer.remove();
       }
