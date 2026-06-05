@@ -3,6 +3,58 @@ import { getDashboardSummary } from '../repositories/dashboard-repository.js';
 import { listRecentEarthquakes } from '../repositories/earthquake-repository.js';
 import { listRecentNaturalEvents, listRecentVolcanoes } from '../repositories/natural-event-repository.js';
 import { listRecentSolarEvents } from '../repositories/solar-event-repository.js';
+import { listRecentRadiation } from '../repositories/radiation-repository.js';
+
+// ── OSM Nuclear Power Plants ─────────────────────────────
+let nuclearPlantsCache = null;
+let nuclearPlantsCacheTs = 0;
+const NUCLEAR_PLANTS_TTL = 24 * 60 * 60 * 1000; // 24h
+
+const OVERPASS_QUERY = '[out:json][timeout:30];(node["power"="plant"]["plant:source"="nuclear"];way["power"="plant"]["plant:source"="nuclear"];relation["power"="plant"]["plant:source"="nuclear"];);out center 500;';
+
+async function fetchNuclearPlants() {
+  if (nuclearPlantsCache && Date.now() - nuclearPlantsCacheTs < NUCLEAR_PLANTS_TTL) {
+    return nuclearPlantsCache;
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const resp = await fetch('https://overpass-api.de/api/interpreter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'data=' + encodeURIComponent(OVERPASS_QUERY),
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`Overpass HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const plants = (data.elements ?? [])
+      .map(el => {
+        const lat = el.lat ?? el.center?.lat;
+        const lon = el.lon ?? el.center?.lon;
+        if (!lat || !lon) return null;
+        const t = el.tags ?? {};
+        return {
+          id:       el.id,
+          lat,
+          lon,
+          name:     t['name:en'] || t['name'] || 'Unknown',
+          operator: t['operator'] || null,
+          capacity: t['plant:output:electricity'] || null,
+          started:  t['start_date'] ? t['start_date'].slice(0, 4) : null,
+          wikidata: t['wikidata'] || null,
+        };
+      })
+      .filter(Boolean);
+
+    nuclearPlantsCache = plants;
+    nuclearPlantsCacheTs = Date.now();
+    return plants;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 // ── Open-Meteo Lightning Potential Grid ──────────────────
 let lightningGridCache = null;
@@ -208,6 +260,50 @@ export async function mapRoutes(fastify) {
       meta: {
         generatedAt: new Date().toISOString(),
       },
+    };
+  });
+
+  fastify.get('/api/v1/map/layers/radiation', async () => {
+    const rows = await listRecentRadiation(fastify.db);
+    return {
+      data: {
+        type: 'FeatureCollection',
+        features: rows
+          .filter(r => r.lat != null && r.lon != null)
+          .map(r => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [Number(r.lon), Number(r.lat)] },
+            properties: {
+              source:    r.source,
+              stationId: r.station_id,
+              valueUsv:  Number(r.value_usv),
+              time:      r.time instanceof Date ? r.time.toISOString() : r.time,
+            },
+          })),
+      },
+      meta: { layer: 'radiation', count: rows.length, generatedAt: new Date().toISOString() },
+    };
+  });
+
+  fastify.get('/api/v1/map/layers/nuclear-plants', async () => {
+    const plants = await fetchNuclearPlants();
+    return {
+      data: {
+        type: 'FeatureCollection',
+        features: plants.map(p => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [p.lon, p.lat] },
+          properties: {
+            id:       p.id,
+            name:     p.name,
+            operator: p.operator,
+            capacity: p.capacity,
+            started:  p.started,
+            wikidata: p.wikidata,
+          },
+        })),
+      },
+      meta: { layer: 'nuclear-plants', count: plants.length, generatedAt: new Date().toISOString() },
     };
   });
 

@@ -185,6 +185,40 @@ async function collectSolar() {
   }
 }
 
+// ── Safecast Radiation ───────────────────────────────────
+async function collectRadiation() {
+  const start = Date.now();
+  try {
+    let inserted = 0;
+    for (let page = 1; page <= 20; page++) {
+      const data = await safeFetch(
+        `https://api.safecast.org/measurements.json?unit=usv&order=captured_at&sort=desc&limit=100&page=${page}`
+      );
+      if (!Array.isArray(data) || !data.length) break;
+
+      for (const m of data) {
+        if (!m.latitude || !m.longitude || !m.value || !m.captured_at) continue;
+        const time      = new Date(m.captured_at);
+        const stationId = m.device_id ? `device-${m.device_id}` : `pos-${Math.round(m.latitude * 10)}-${Math.round(m.longitude * 10)}`;
+
+        await db.query(
+          `INSERT INTO radiation_measurements (time, source, station_id, lat, lon, value_usv)
+           VALUES ($1,$2,$3,$4,$5,$6)
+           ON CONFLICT (time, source, station_id) DO NOTHING`,
+          [time, 'safecast', stationId, m.latitude, m.longitude, m.value]
+        );
+        inserted++;
+      }
+    }
+
+    await logRun('safecast_radiation', inserted, Date.now() - start, true);
+    console.log(`✅ Radiation: ${inserted} records`);
+  } catch (e) {
+    await logRun('safecast_radiation', 0, Date.now() - start, false, e.message);
+    console.error('❌ Radiation failed:', e.message);
+  }
+}
+
 // ── Run all collectors ───────────────────────────────────
 async function runAll() {
   console.log(`\n🔄 [${new Date().toISOString()}] Running all collectors...`);
@@ -215,10 +249,12 @@ async function start() {
 
   // Run immediately on start
   await runAll();
+  await collectRadiation();
 
   // Then on schedule
   cron.schedule(`*/${POLL_INTERVAL} * * * *`, runAll);
-  console.log(`⏱  Scheduled every ${POLL_INTERVAL} minutes`);
+  cron.schedule('0 */4 * * *', collectRadiation);
+  console.log(`⏱  Scheduled every ${POLL_INTERVAL} minutes (radiation every 4h)`);
 }
 
 start().catch(e => {

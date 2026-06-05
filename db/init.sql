@@ -125,7 +125,22 @@ SELECT add_continuous_aggregate_policy('air_quality_daily',
     if_not_exists => TRUE
 );
 
+-- ── Radiation Measurements (Safecast) ──────────────────
+CREATE TABLE IF NOT EXISTS radiation_measurements (
+    time        TIMESTAMPTZ     NOT NULL,
+    source      TEXT            NOT NULL,  -- 'safecast'
+    station_id  TEXT            NOT NULL,
+    lat         DECIMAL(9,6),
+    lon         DECIMAL(9,6),
+    value_usv   DECIMAL(10,6),             -- µSv/h
+    UNIQUE (time, source, station_id)
+);
+SELECT create_hypertable('radiation_measurements', 'time', if_not_exists => TRUE);
+CREATE INDEX IF NOT EXISTS idx_radiation_location ON radiation_measurements (lat, lon);
+CREATE INDEX IF NOT EXISTS idx_radiation_source   ON radiation_measurements (source, time DESC);
+
 -- ── Retention Policies ──────────────────────────────────
 -- Keep raw data for 1 year, aggregates kept indefinitely
-SELECT add_retention_policy('air_quality',   INTERVAL '1 year',  if_not_exists => TRUE);
-SELECT add_retention_policy('collector_runs', INTERVAL '30 days', if_not_exists => TRUE);
+SELECT add_retention_policy('air_quality',          INTERVAL '1 year',  if_not_exists => TRUE);
+SELECT add_retention_policy('collector_runs',        INTERVAL '30 days', if_not_exists => TRUE);
+SELECT add_retention_policy('radiation_measurements', INTERVAL '30 days', if_not_exists => TRUE);

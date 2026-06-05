@@ -10,6 +10,8 @@ const state = {
     alerts: true,
     volcanoes: true,
     lightning: true,
+    radiation: true,
+    nuclear: true,
   },
   markers: {
     earthquakes: [],
@@ -17,6 +19,8 @@ const state = {
     alerts: [],
     iss: null,
     volcanoes: [],
+    radiation: [],
+    nuclear: [],
   },
   ships: new Map(),
   feed: [],
@@ -462,6 +466,76 @@ async function loadVolcanoes() {
   });
 }
 
+function radiationColor(usv) {
+  if (usv >= 1.0)  return '#ff2222';
+  if (usv >= 0.3)  return '#ff8800';
+  if (usv >= 0.1)  return '#ffdd00';
+  return '#44dd44';
+}
+
+async function loadRadiation() {
+  const payload = await fetchJson('/api/v1/map/layers/radiation');
+  const features = payload.data.features ?? [];
+
+  clearMarkers('radiation');
+
+  let maxUsv = 0;
+  features.forEach((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const usv   = feature.properties.valueUsv ?? 0;
+    const color = radiationColor(usv);
+    if (usv > maxUsv) maxUsv = usv;
+
+    const marker = L.circleMarker([lat, lng], {
+      renderer: canvasRenderer,
+      radius: 7,
+      color,
+      weight: 1.5,
+      fillColor: color,
+      fillOpacity: 0.55,
+    });
+
+    bindHover(
+      marker,
+      `☢️ ${usv.toFixed(4)} µSv/h`,
+      `${feature.properties.source} • ${formatShortDate(feature.properties.time)} UTC`
+    );
+
+    if (markerVisible('radiation')) marker.addTo(map);
+    state.markers.radiation.push(marker);
+  });
+
+  setText('radiation-count', features.length);
+  setText('radiation-stations', features.length);
+  setText('radiation-max', maxUsv > 0 ? `${maxUsv.toFixed(4)} µSv/h` : '--');
+}
+
+async function loadNuclearPlants() {
+  const payload = await fetchJson('/api/v1/map/layers/nuclear-plants');
+  const features = payload.data.features ?? [];
+
+  clearMarkers('nuclear');
+
+  features.forEach((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const p = feature.properties;
+    const marker = L.marker([lat, lng], {
+      icon: createDivIcon(
+        'event-icon-wrap',
+        '<div class="event-icon" aria-hidden="true">⚛️</div>',
+        24
+      ),
+    });
+
+    const cap  = p.capacity ? ` • ${p.capacity}` : '';
+    const year = p.started  ? ` since ${p.started}` : '';
+    bindHover(marker, p.name, `${p.operator ?? 'Unknown operator'}${cap}${year}`);
+
+    if (markerVisible('nuclear')) marker.addTo(map);
+    state.markers.nuclear.push(marker);
+  });
+}
+
 let heatLayer = null;
 
 async function loadLightningPotential() {
@@ -800,6 +874,8 @@ async function init() {
     loadNaturalEvents(),
     loadVolcanoes(),
     loadLightningPotential(),
+    loadRadiation(),
+    loadNuclearPlants(),
     loadSolar(),
     loadNoaaAlerts(),
     loadIss(),
@@ -814,6 +890,8 @@ async function init() {
   schedule(300000, loadNaturalEvents);
   schedule(300000, loadVolcanoes);
   schedule(3600000, loadLightningPotential);
+  schedule(14400000, loadRadiation);
+  schedule(86400000, loadNuclearPlants);
   schedule(1800000, loadSolar);
   schedule(300000, loadNoaaAlerts);
   schedule(10000, loadIss);

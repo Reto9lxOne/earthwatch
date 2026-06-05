@@ -20,7 +20,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   >
-  <link rel="stylesheet" href="/assets/app.css?v=20260605a">
+  <link rel="stylesheet" href="/assets/app.css?v=20260605b">
 </head>
 <body>
   <div class="page-shell">
@@ -115,6 +115,8 @@
               <button class="layer-chip is-active" data-layer="alerts">Alerts</button>
               <button class="layer-chip is-active" data-layer="volcanoes">Volcanoes</button>
               <button class="layer-chip is-active" data-layer="lightning">Lightning</button>
+              <button class="layer-chip is-active" data-layer="radiation">Radiation</button>
+              <button class="layer-chip is-active" data-layer="nuclear">Nuclear Plants</button>
               <button class="layer-chip sat-chip" data-satellite="starlink">Starlink</button>
               <button class="layer-chip sat-chip" data-satellite="weather">Weather Sats</button>
               <button class="layer-chip sat-chip" data-satellite="stations">Stations</button>
@@ -141,6 +143,21 @@
       </section>
 
       <section class="rail rail-right">
+        <article class="panel">
+          <div class="panel-header">
+            <p class="panel-label">Radiation</p>
+            <span class="panel-badge" id="radiation-count">--</span>
+          </div>
+          <div class="stat-pair">
+            <span>Source</span>
+            <strong class="metric-value-compact">Safecast</strong>
+          </div>
+          <div class="stacked-stats">
+            <div class="stat-pair"><span>Stations (7d)</span><strong id="radiation-stations">--</strong></div>
+            <div class="stat-pair"><span>Max µSv/h</span><strong id="radiation-max">--</strong></div>
+          </div>
+        </article>
+
         <article class="panel">
           <div class="panel-header">
             <p class="panel-label">Storm potential (CAPE)</p>
@@ -196,6 +213,6 @@
   ></script>
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js"></script>
-  <script src="/assets/app.js?v=20260605a" type="module"></script>
+  <script src="/assets/app.js?v=20260605b" type="module"></script>
 </body>
 </html>
