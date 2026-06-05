@@ -16,6 +16,7 @@ const state = {
     flights: false,
     aurora: false,
     outages: true,
+    sst: true,
   },
   markers: {
     earthquakes: [],
@@ -679,6 +680,42 @@ async function loadOutages() {
   });
 }
 
+let sstHeatLayer = null;
+
+async function loadSST() {
+  const payload = await fetchJson('/api/v1/map/layers/sst');
+  const points = payload.data ?? [];
+
+  // Map -2°C to 34°C → 0 to 1
+  const heatPoints = points.map(p => [p.lat, p.lon, Math.max(0, Math.min(1, (p.temp + 2) / 36))]);
+
+  if (sstHeatLayer) {
+    sstHeatLayer.setLatLngs(heatPoints);
+    return;
+  }
+
+  sstHeatLayer = L.heatLayer(heatPoints, {
+    radius: 35,
+    blur: 25,
+    maxZoom: 4,
+    max: 1,
+    gradient: { 0: '#000066', 0.15: '#0033cc', 0.35: '#00aaff', 0.55: '#00cc88', 0.72: '#ffdd00', 0.87: '#ff6600', 1.0: '#cc0000' },
+  });
+
+  if (markerVisible('sst')) {
+    sstHeatLayer.addTo(map);
+    if (sstHeatLayer._canvas) sstHeatLayer._canvas.style.pointerEvents = 'none';
+  }
+}
+
+async function loadCO2() {
+  const payload = await fetchJson('/api/v1/external/co2');
+  const d = payload.data;
+  if (d?.ppm) {
+    setText('co2-value', d.ppm.toFixed(2));
+  }
+}
+
 let heatLayer = null;
 
 async function loadLightningPotential() {
@@ -989,6 +1026,16 @@ document.querySelectorAll('[data-layer]').forEach((button) => {
       return;
     }
 
+    if (layer === 'sst' && sstHeatLayer) {
+      if (state.layers.sst) {
+        sstHeatLayer.addTo(map);
+        if (sstHeatLayer._canvas) sstHeatLayer._canvas.style.pointerEvents = 'none';
+      } else {
+        sstHeatLayer.remove();
+      }
+      return;
+    }
+
     if (layer === 'aurora' && auroraHeatLayer) {
       if (state.layers.aurora) {
         auroraHeatLayer.addTo(map);
@@ -1036,6 +1083,8 @@ async function init() {
     loadAurora(),
     loadOutages(),
     loadFlights(),
+    loadSST(),
+    loadCO2(),
     loadSolar(),
     loadNoaaAlerts(),
     loadIss(),
@@ -1053,6 +1102,8 @@ async function init() {
   schedule(3600000, loadAurora);
   schedule(900000, loadOutages);
   schedule(60000, loadFlights, { skipWhenHidden: true });
+  schedule(86400000, loadSST);
+  schedule(21600000, loadCO2);
   schedule(14400000, loadRadiation);
   schedule(86400000, loadNuclearPlants);
   schedule(3600000, loadWebcams);

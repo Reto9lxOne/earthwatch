@@ -6,6 +6,79 @@ import { listRecentNaturalEvents, listRecentVolcanoes } from '../repositories/na
 import { listRecentSolarEvents } from '../repositories/solar-event-repository.js';
 import { listRecentRadiation } from '../repositories/radiation-repository.js';
 
+// ── NOAA CO₂ (Mauna Loa) ─────────────────────────────────
+let co2Cache = null;
+let co2CacheTs = 0;
+const CO2_CACHE_TTL = 6 * 60 * 60 * 1000; // 6h
+
+async function fetchCO2() {
+  if (co2Cache && Date.now() - co2CacheTs < CO2_CACHE_TTL) return co2Cache;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const resp = await fetch(
+      'https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_daily_mlo.txt',
+      { signal: controller.signal }
+    );
+    if (!resp.ok) throw new Error(`NOAA CO₂ HTTP ${resp.status}`);
+    const text = await resp.text();
+
+    let latest = null;
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('#') || !trimmed) continue;
+      const parts = trimmed.split(/\s+/);
+      const ppm = parseFloat(parts[4]);
+      if (isNaN(ppm) || ppm < 0) continue;
+      latest = { year: +parts[0], month: +parts[1], day: +parts[2], ppm };
+    }
+
+    co2Cache = latest;
+    co2CacheTs = Date.now();
+    return latest;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// ── Sea Surface Temperature (NOAA ERDDAP) ────────────────
+let sstCache = null;
+let sstCacheTs = 0;
+const SST_CACHE_TTL = 24 * 60 * 60 * 1000; // 24h
+
+async function fetchSST() {
+  if (sstCache && Date.now() - sstCacheTs < SST_CACHE_TTL) return sstCache;
+
+  // stride=40 on 0.25° dataset ≈ 10° effective grid, ~13k ocean points
+  const url = 'https://coastwatch.pfeg.noaa.gov/erddap/griddap/nesdisBLENDEDsstDNDaily.csv' +
+    '?analysed_sst%5B(last)%5D%5B(-75):40:(75)%5D%5B(-180):40:(180)%5D';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30000);
+  try {
+    const resp = await fetch(url, { redirect: 'follow', signal: controller.signal });
+    if (!resp.ok) throw new Error(`ERDDAP SST HTTP ${resp.status}`);
+    const text = await resp.text();
+
+    const lines = text.trim().split('\n');
+    const points = [];
+    for (const line of lines.slice(2)) {
+      if (!line) continue;
+      const [, lat, lon, sst] = line.split(',');
+      const temp = parseFloat(sst);
+      if (isNaN(temp)) continue;
+      points.push({ lat: parseFloat(lat), lon: parseFloat(lon), temp });
+    }
+
+    sstCache = points;
+    sstCacheTs = Date.now();
+    return points;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // ── Country centroids for IODA outage layer ──────────────
 const COUNTRY_CENTROIDS = {
   AF:[33,65],AL:[41,20],DZ:[28,3],AO:[-12,18],AR:[-34,-64],AM:[40,45],AU:[-25,134],AT:[47,14],AZ:[40,48],
@@ -527,6 +600,19 @@ export async function mapRoutes(fastify) {
       meta: {
         generatedAt: new Date().toISOString(),
       },
+    };
+  });
+
+  fastify.get('/api/v1/external/co2', async () => {
+    const data = await fetchCO2();
+    return { data, meta: { generatedAt: new Date().toISOString() } };
+  });
+
+  fastify.get('/api/v1/map/layers/sst', async () => {
+    const points = await fetchSST();
+    return {
+      data: points,
+      meta: { layer: 'sst', count: points.length, generatedAt: new Date().toISOString() },
     };
   });
 
