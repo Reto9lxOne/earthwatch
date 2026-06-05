@@ -39,6 +39,45 @@ function parseTLEResponse(data) {
   return (data.member || []).map(m => ({ name: m.name?.trim() || 'Unknown', tle1: m.line1, tle2: m.line2 }));
 }
 
+// ── Blitzortung Lightning ────────────────────────────────
+const MAX_LIGHTNING_BUFFER = 500;
+const lightningBuffer = [];
+const lightningClients = new Set();
+let lightningWs = null;
+
+function broadcastLightningStrike(strike) {
+  const msg = JSON.stringify({ type: 'strike', data: strike });
+  lightningClients.forEach(client => {
+    if (client.readyState === WebSocket.OPEN) client.send(msg);
+  });
+}
+
+function connectBlitzortung() {
+  lightningWs = new WebSocket('wss://ws1.blitzortung.org/');
+
+  lightningWs.on('open', () => {
+    console.log('Blitzortung connected');
+  });
+
+  lightningWs.on('message', (raw) => {
+    try {
+      const data = JSON.parse(raw.toString());
+      if (data.lat == null || data.lon == null) return;
+      const strike = { lat: data.lat, lon: data.lon, time: data.time, pol: data.pol ?? 0 };
+      lightningBuffer.push(strike);
+      if (lightningBuffer.length > MAX_LIGHTNING_BUFFER) lightningBuffer.shift();
+      broadcastLightningStrike(strike);
+    } catch {}
+  });
+
+  lightningWs.on('close', () => {
+    console.warn('Blitzortung closed — reconnecting in 15s');
+    setTimeout(connectBlitzortung, 15000);
+  });
+
+  lightningWs.on('error', (e) => console.error('Blitzortung error:', e.message));
+}
+
 // ── AIS Ship State ───────────────────────────────────────
 const shipState = new Map();
 const MAX_SHIPS = 500;
@@ -127,7 +166,16 @@ const server = http.createServer(async (req, res) => {
       adsb: 'removed',
       ais: aisWs?.readyState === WebSocket.OPEN ? 'connected' : 'disconnected',
       ships: shipState.size,
+      lightning: lightningWs?.readyState === WebSocket.OPEN ? 'connected' : 'disconnected',
+      lightningBuffer: lightningBuffer.length,
     }));
+    return;
+  }
+
+  // Lightning snapshot
+  if (req.url === '/lightning/snapshot') {
+    res.writeHead(200);
+    res.end(JSON.stringify({ count: lightningBuffer.length, strikes: lightningBuffer }));
     return;
   }
 
@@ -242,11 +290,25 @@ wss.on('connection', (ws) => {
   ws.on('error', () => { dashClients.delete(ws); });
 });
 
+// ── WebSocket for Lightning ───────────────────────────────
+const lightningWss = new WebSocketServer({ server, path: '/ws/lightning' });
+
+lightningWss.on('connection', (ws) => {
+  lightningClients.add(ws);
+  console.log(`Lightning client connected (${lightningClients.size} total)`);
+  ws.send(JSON.stringify({ type: 'snapshot', strikes: lightningBuffer }));
+  ws.on('close', () => lightningClients.delete(ws));
+  ws.on('error', () => lightningClients.delete(ws));
+});
+
 server.listen(PORT, () => {
   console.log(`Earthwatch Proxy :${PORT}`);
-  console.log(`  Ships WS:  /ws/ships`);
-  console.log(`  Ships REST: /ships/snapshot`);
-  console.log(`  DONKI:     /donki/{type}?startDate=...&endDate=...`);
-  console.log(`  Health:    /health`);
+  console.log(`  Ships WS:      /ws/ships`);
+  console.log(`  Ships REST:    /ships/snapshot`);
+  console.log(`  Lightning WS:  /ws/lightning`);
+  console.log(`  Lightning REST:/lightning/snapshot`);
+  console.log(`  DONKI:         /donki/{type}?startDate=...&endDate=...`);
+  console.log(`  Health:        /health`);
   connectAIS();
+  connectBlitzortung();
 });

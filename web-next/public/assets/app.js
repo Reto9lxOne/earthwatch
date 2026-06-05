@@ -8,16 +8,21 @@ const state = {
     ships: true,
     iss: true,
     alerts: true,
+    volcanoes: true,
+    lightning: true,
   },
   markers: {
     earthquakes: [],
     events: [],
     alerts: [],
     iss: null,
+    volcanoes: [],
+    lightning: [],
   },
   ships: new Map(),
   feed: [],
   shipSocket: null,
+  lightningSocket: null,
 };
 
 // ── Satellite Layers ──────────────────────────────────────
@@ -429,6 +434,106 @@ async function loadNaturalEvents() {
   });
 }
 
+async function loadVolcanoes() {
+  const payload = await fetchJson('/api/v1/map/layers/volcanoes?limit=100');
+  const features = payload.data.features ?? [];
+
+  clearMarkers('volcanoes');
+
+  features.forEach((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const marker = L.marker([lat, lng], {
+      icon: createDivIcon(
+        'event-icon-wrap',
+        '<div class="event-icon" aria-hidden="true">🌋</div>',
+        28
+      ),
+    });
+
+    bindHover(
+      marker,
+      feature.properties.title ?? 'Volcanic activity',
+      `Volcano • ${formatShortDate(feature.properties.time)} UTC`
+    );
+
+    if (markerVisible('volcanoes')) {
+      marker.addTo(map);
+    }
+
+    state.markers.volcanoes.push(marker);
+  });
+}
+
+function addLightningStrike(strike) {
+  if (strike.lat == null || strike.lon == null) return;
+
+  const marker = L.circleMarker([strike.lat, strike.lon], {
+    renderer: canvasRenderer,
+    radius: 3,
+    color: '#ffe566',
+    weight: 1,
+    fillColor: '#ffee00',
+    fillOpacity: 0.85,
+  });
+
+  if (markerVisible('lightning')) {
+    marker.addTo(map);
+  }
+
+  state.markers.lightning.push(marker);
+  updateLightningCount();
+
+  setTimeout(() => {
+    marker.remove();
+    const idx = state.markers.lightning.indexOf(marker);
+    if (idx > -1) state.markers.lightning.splice(idx, 1);
+    updateLightningCount();
+  }, 8000);
+}
+
+function updateLightningCount() {
+  setText('lightning-count', state.markers.lightning.length);
+  setText('lightning-visible', state.markers.lightning.length);
+}
+
+async function loadLightningSnapshot() {
+  const payload = await fetchJson('/api/lightning/snapshot');
+  const strikes = payload.strikes ?? [];
+  strikes.slice(-80).forEach(addLightningStrike);
+}
+
+function connectLightning() {
+  if (state.lightningSocket && state.lightningSocket.readyState === WebSocket.OPEN) return;
+
+  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+  const socket = new WebSocket(`${protocol}://${window.location.host}/ws/lightning`);
+  state.lightningSocket = socket;
+  setText('lightning-status', 'Connecting');
+
+  socket.addEventListener('open', () => {
+    setText('lightning-status', 'Live');
+  });
+
+  socket.addEventListener('message', (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'snapshot') {
+      msg.strikes.slice(-80).forEach(addLightningStrike);
+    } else if (msg.type === 'strike') {
+      addLightningStrike(msg.data);
+    }
+  });
+
+  socket.addEventListener('error', async () => {
+    setText('lightning-status', 'Fallback');
+    try { await loadLightningSnapshot(); } catch (error) { reportError('lightning:fallback', error); }
+  });
+
+  socket.addEventListener('close', () => {
+    setText('lightning-status', 'Reconnecting');
+    window.setTimeout(connectLightning, 15000);
+  });
+}
+
 async function loadSolar() {
   const payload = await fetchJson('/api/v1/map/layers/solar-events?limit=12');
   const entries = payload.data ?? [];
@@ -728,6 +833,7 @@ async function init() {
     loadSummary(),
     loadEarthquakes(),
     loadNaturalEvents(),
+    loadVolcanoes(),
     loadSolar(),
     loadNoaaAlerts(),
     loadIss(),
@@ -735,11 +841,13 @@ async function init() {
   ]);
 
   connectShips();
+  connectLightning();
   hideLoader();
 
   schedule(60000, loadSummary);
   schedule(300000, loadEarthquakes);
   schedule(300000, loadNaturalEvents);
+  schedule(300000, loadVolcanoes);
   schedule(1800000, loadSolar);
   schedule(300000, loadNoaaAlerts);
   schedule(10000, loadIss);

@@ -1,7 +1,7 @@
 import { fetchJsonWithCache } from '../lib/fetch-cache.js';
 import { getDashboardSummary } from '../repositories/dashboard-repository.js';
 import { listRecentEarthquakes } from '../repositories/earthquake-repository.js';
-import { listRecentNaturalEvents } from '../repositories/natural-event-repository.js';
+import { listRecentNaturalEvents, listRecentVolcanoes } from '../repositories/natural-event-repository.js';
 import { listRecentSolarEvents } from '../repositories/solar-event-repository.js';
 
 function toEarthquakeFeature(row) {
@@ -98,6 +98,26 @@ export async function mapRoutes(fastify) {
       },
       meta: {
         layer: 'natural-events',
+        count: rows.length,
+        generatedAt: new Date().toISOString(),
+      },
+    };
+  });
+
+  fastify.get('/api/v1/map/layers/volcanoes', async (request) => {
+    const rows = await listRecentVolcanoes(fastify.db, {
+      limit: request.query.limit,
+    });
+
+    return {
+      data: {
+        type: 'FeatureCollection',
+        features: rows
+          .filter((row) => row.lat != null && row.lon != null)
+          .map(toNaturalEventFeature),
+      },
+      meta: {
+        layer: 'volcanoes',
         count: rows.length,
         generatedAt: new Date().toISOString(),
       },

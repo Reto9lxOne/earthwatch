@@ -293,6 +293,16 @@ h1 {
   filter: drop-shadow(0 0 8px rgba(103, 212, 255, 0.6)) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.8));
 }
 
+.leaflet-interactive.lightning-marker {
+  animation: lightning-fade 8s ease-out forwards;
+}
+
+@keyframes lightning-fade {
+  0%   { opacity: 1; }
+  60%  { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
 
 
 .leaflet-control-zoom a {

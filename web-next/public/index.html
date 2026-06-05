@@ -20,7 +20,7 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   >
-  <link rel="stylesheet" href="/assets/app.css?v=20260512e">
+  <link rel="stylesheet" href="/assets/app.css?v=20260605a">
 </head>
 <body>
   <div class="page-shell">
@@ -113,6 +113,8 @@
               <button class="layer-chip is-active" data-layer="ships">Ships</button>
               <button class="layer-chip is-active" data-layer="iss">ISS</button>
               <button class="layer-chip is-active" data-layer="alerts">Alerts</button>
+              <button class="layer-chip is-active" data-layer="volcanoes">Volcanoes</button>
+              <button class="layer-chip is-active" data-layer="lightning">Lightning</button>
               <button class="layer-chip sat-chip" data-satellite="starlink">Starlink</button>
               <button class="layer-chip sat-chip" data-satellite="weather">Weather Sats</button>
               <button class="layer-chip sat-chip" data-satellite="stations">Stations</button>
@@ -139,6 +141,21 @@
       </section>
 
       <section class="rail rail-right">
+        <article class="panel">
+          <div class="panel-header">
+            <p class="panel-label">Lightning</p>
+            <span class="panel-badge" id="lightning-count">--</span>
+          </div>
+          <div class="stat-pair">
+            <span>Stream</span>
+            <strong class="metric-value-compact" id="lightning-status">Connecting</strong>
+          </div>
+          <div class="stat-pair">
+            <span>Visible strikes</span>
+            <strong id="lightning-visible">0</strong>
+          </div>
+        </article>
+
         <article class="panel">
           <div class="panel-header">
             <p class="panel-label">Solar feed</p>
@@ -178,6 +195,6 @@
     crossorigin=""
   ></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js"></script>
-  <script src="/assets/app.js?v=20260512f" type="module"></script>
+  <script src="/assets/app.js?v=20260605a" type="module"></script>
 </body>
 </html>
