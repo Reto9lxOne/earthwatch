@@ -37,7 +37,7 @@ async function fetchLightningPotentialGrid() {
   for (let i = 0; i < lats.length; i += batchSize) {
     const bLats = lats.slice(i, i + batchSize);
     const bLons = lons.slice(i, i + batchSize);
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${bLats.join(',')}&longitude=${bLons.join(',')}&hourly=lightning_potential&forecast_days=1&timezone=UTC`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${bLats.join(',')}&longitude=${bLons.join(',')}&hourly=cape&forecast_days=1&timezone=UTC`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -49,10 +49,10 @@ async function fetchLightningPotentialGrid() {
       const entries = Array.isArray(data) ? data : [data];
       for (const entry of entries) {
         const times = entry.hourly?.time ?? [];
-        const values = entry.hourly?.lightning_potential ?? [];
+        const values = entry.hourly?.cape ?? [];
         const idx = times.indexOf(currentHourStr);
         const value = idx >= 0 ? (values[idx] ?? 0) : 0;
-        if (value > 0) {
+        if (value > 500) {
           results.push({ lat: entry.latitude, lon: entry.longitude, value });
         }
       }

@@ -468,7 +468,7 @@ async function loadLightningPotential() {
   const payload = await fetchJson('/api/v1/lightning/potential');
   const points = payload.data ?? [];
 
-  const heatPoints = points.map(p => [p.lat, p.lon, Math.min(p.value / 300, 1)]);
+  const heatPoints = points.map(p => [p.lat, p.lon, Math.min(p.value / 4000, 1)]);
 
   setText('lightning-count', points.length);
   setText('lightning-visible', points.length);
