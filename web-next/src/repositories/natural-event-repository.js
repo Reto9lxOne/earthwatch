@@ -15,7 +15,7 @@ function normalizeLimit(limit) {
 export async function listRecentNaturalEvents(db, options = {}) {
   const limit = normalizeLimit(options.limit);
   const result = await db.query(
-    `SELECT
+    `SELECT DISTINCT ON (event_id)
        time,
        event_id,
        title,
@@ -26,7 +26,7 @@ export async function listRecentNaturalEvents(db, options = {}) {
      FROM natural_events
      WHERE time >= NOW() - INTERVAL '30 days'
        AND category != 'volcanoes'
-     ORDER BY time DESC
+     ORDER BY event_id, time DESC
      LIMIT $1`,
     [limit]
   );
