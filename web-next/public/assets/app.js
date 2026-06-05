@@ -17,12 +17,10 @@ const state = {
     alerts: [],
     iss: null,
     volcanoes: [],
-    lightning: [],
   },
   ships: new Map(),
   feed: [],
   shipSocket: null,
-  lightningSocket: null,
 };
 
 // ── Satellite Layers ──────────────────────────────────────
@@ -464,74 +462,32 @@ async function loadVolcanoes() {
   });
 }
 
-function addLightningStrike(strike) {
-  if (strike.lat == null || strike.lon == null) return;
+let heatLayer = null;
 
-  const marker = L.circleMarker([strike.lat, strike.lon], {
-    renderer: canvasRenderer,
-    radius: 3,
-    color: '#ffe566',
-    weight: 1,
-    fillColor: '#ffee00',
-    fillOpacity: 0.85,
+async function loadLightningPotential() {
+  const payload = await fetchJson('/api/v1/lightning/potential');
+  const points = payload.data ?? [];
+
+  const heatPoints = points.map(p => [p.lat, p.lon, Math.min(p.value / 300, 1)]);
+
+  setText('lightning-count', points.length);
+  setText('lightning-visible', points.length);
+
+  if (heatLayer) {
+    heatLayer.setLatLngs(heatPoints);
+    return;
+  }
+
+  heatLayer = L.heatLayer(heatPoints, {
+    radius: 55,
+    blur: 45,
+    maxZoom: 4,
+    gradient: { 0.2: '#003388', 0.5: '#66aaff', 0.75: '#ffee00', 1.0: '#ff4400' },
   });
 
   if (markerVisible('lightning')) {
-    marker.addTo(map);
+    heatLayer.addTo(map);
   }
-
-  state.markers.lightning.push(marker);
-  updateLightningCount();
-
-  setTimeout(() => {
-    marker.remove();
-    const idx = state.markers.lightning.indexOf(marker);
-    if (idx > -1) state.markers.lightning.splice(idx, 1);
-    updateLightningCount();
-  }, 8000);
-}
-
-function updateLightningCount() {
-  setText('lightning-count', state.markers.lightning.length);
-  setText('lightning-visible', state.markers.lightning.length);
-}
-
-async function loadLightningSnapshot() {
-  const payload = await fetchJson('/api/lightning/snapshot');
-  const strikes = payload.strikes ?? [];
-  strikes.slice(-80).forEach(addLightningStrike);
-}
-
-function connectLightning() {
-  if (state.lightningSocket && state.lightningSocket.readyState === WebSocket.OPEN) return;
-
-  const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  const socket = new WebSocket(`${protocol}://${window.location.host}/ws/lightning`);
-  state.lightningSocket = socket;
-  setText('lightning-status', 'Connecting');
-
-  socket.addEventListener('open', () => {
-    setText('lightning-status', 'Live');
-  });
-
-  socket.addEventListener('message', (event) => {
-    const msg = JSON.parse(event.data);
-    if (msg.type === 'snapshot') {
-      msg.strikes.slice(-80).forEach(addLightningStrike);
-    } else if (msg.type === 'strike') {
-      addLightningStrike(msg.data);
-    }
-  });
-
-  socket.addEventListener('error', async () => {
-    setText('lightning-status', 'Fallback');
-    try { await loadLightningSnapshot(); } catch (error) { reportError('lightning:fallback', error); }
-  });
-
-  socket.addEventListener('close', () => {
-    setText('lightning-status', 'Reconnecting');
-    window.setTimeout(connectLightning, 15000);
-  });
 }
 
 async function loadSolar() {
@@ -814,6 +770,15 @@ document.querySelectorAll('[data-layer]').forEach((button) => {
       return;
     }
 
+    if (layer === 'lightning' && heatLayer) {
+      if (state.layers.lightning) {
+        heatLayer.addTo(map);
+      } else {
+        heatLayer.remove();
+      }
+      return;
+    }
+
     const markerSet = state.markers[layer] ?? [];
     markerSet.forEach((marker) => {
       if (state.layers[layer]) {
@@ -834,6 +799,7 @@ async function init() {
     loadEarthquakes(),
     loadNaturalEvents(),
     loadVolcanoes(),
+    loadLightningPotential(),
     loadSolar(),
     loadNoaaAlerts(),
     loadIss(),
@@ -841,13 +807,13 @@ async function init() {
   ]);
 
   connectShips();
-  connectLightning();
   hideLoader();
 
   schedule(60000, loadSummary);
   schedule(300000, loadEarthquakes);
   schedule(300000, loadNaturalEvents);
   schedule(300000, loadVolcanoes);
+  schedule(3600000, loadLightningPotential);
   schedule(1800000, loadSolar);
   schedule(300000, loadNoaaAlerts);
   schedule(10000, loadIss);
