@@ -1,6 +1,6 @@
 # Earthwatch
 
-Earthwatch is a Docker-based live monitoring stack for earthquakes, natural events, ships, solar activity, NOAA alerts, and ISS position tracking.
+Earthwatch is a Docker-based live monitoring stack for earthquakes, natural events, ships, solar activity, NOAA alerts, ISS position tracking, volcanic activity, storm potential, radiation levels, and nuclear plant locations.
 
 It combines a Node.js dashboard/API service, a TimescaleDB-backed collector pipeline, a small proxy service for external feeds, and Grafana for analytics and alerting.
 
@@ -20,11 +20,15 @@ It combines a Node.js dashboard/API service, a TimescaleDB-backed collector pipe
 | Layer | API | Mode | Status |
 |---|---|---|---|
 | 🔴 Earthquakes | USGS GeoJSON Feed | Poll 5min | ✅ Active |
-| 🌋 Natural Events | NASA EONET | Poll 5min | ✅ Active |
-| ☀️ Solar Activity | NASA DONKI (via proxy) | Poll 30min | ✅ Active |
-| 🚢 Ships | aisstream.io (via WebSocket proxy) | Live | ✅ Active |
+| 🌋 Volcanic activity | NASA EONET (dedicated layer) | Poll 5min | ✅ Active |
+| 🌪 Natural events | NASA EONET (excl. volcanoes) | Poll 5min | ✅ Active |
+| ☀️ Solar activity | NASA DONKI (via proxy) | Poll 30min | ✅ Active |
+| 🚢 Ships | aisstream.io (WebSocket proxy) | Live | ✅ Active |
 | 🛸 ISS | wheretheiss.at | Poll 10s | ✅ Active |
 | 🌩 NOAA Alerts | api.weather.gov | Poll 5min | ✅ Active |
+| ⛈ Storm potential | Open-Meteo CAPE (15° global grid) | Poll 1h | ✅ Active |
+| ☢️ Radiation | Safecast (µSv/h crowd-sourced) | Poll 4h | ✅ Active (sparse) |
+| ⚛️ Nuclear plants | OpenStreetMap Overpass | Cache 24h | ✅ Active |
 | 💨 Air Quality | OpenAQ v3 | Poll 5min | ⏸ Disabled (needs free API key) |
 
 ## Architecture
@@ -153,8 +157,12 @@ Main routes:
 - `/health` — application and database health
 - `/api/v1/map/summary` — dashboard summary metrics
 - `/api/v1/map/layers/earthquakes` — earthquake layer from TimescaleDB
-- `/api/v1/map/layers/natural-events` — natural event layer from TimescaleDB
+- `/api/v1/map/layers/natural-events` — natural events layer (excl. volcanoes) from TimescaleDB
+- `/api/v1/map/layers/volcanoes` — volcanic activity layer from TimescaleDB (60-day window)
 - `/api/v1/map/layers/solar-events` — solar event feed from TimescaleDB
+- `/api/v1/map/layers/radiation` — radiation measurements from TimescaleDB (latest per ~1° cell)
+- `/api/v1/map/layers/nuclear-plants` — nuclear plant locations from OSM Overpass (24h cache)
+- `/api/v1/lightning/potential` — CAPE-based storm heatmap grid from Open-Meteo (1h cache)
 - `/api/v1/external/iss` — cached ISS status
 - `/api/v1/external/noaa-alerts` — cached NOAA alerts
 
@@ -242,7 +250,7 @@ earthwatch/
 │   └── ssl/              ← place certs here (not in git!)
 ├── collector/
 │   ├── Dockerfile
-│   ├── index.js          ← polls USGS, EONET, DONKI, OpenAQ
+│   ├── index.js          ← polls USGS, EONET, DONKI, Safecast, OpenAQ
 │   └── package.json
 ├── proxy/
 │   ├── Dockerfile
@@ -387,6 +395,26 @@ Rollback does not require:
 - existing routes `/api/health`, `/api/donki/*`, `/api/ships/*`, and `/ws/ships` remain unchanged
 - no existing persistent data paths are modified
 
+## Radiation Layer Notes
+
+The radiation layer uses [Safecast](https://safecast.org) crowd-sourced measurements (`unit=usv`, µSv/h). Coverage is sparse — typically 2–5 active stations globally. The collector fetches the last 20 pages of recent measurements every 4 hours and stores the latest reading per ~1° grid cell.
+
+Color scale:
+- 🟢 Green: ≤ 0.1 µSv/h (normal background)
+- 🟡 Yellow: 0.1–0.3 µSv/h (slightly elevated)
+- 🟠 Orange: 0.3–1.0 µSv/h (elevated)
+- 🔴 Red: > 1.0 µSv/h (significantly elevated)
+
+The nuclear plant layer (⚛️) shows 200+ facilities from OpenStreetMap and is refreshed every 24 hours. It includes power plants, research reactors, and fuel processing facilities.
+
+---
+
+## Storm Potential Layer Notes
+
+The lightning/storm heatmap uses [Open-Meteo](https://open-meteo.com)'s CAPE (Convective Available Potential Energy) variable on a 15° global grid, refreshed hourly. CAPE measures the energy available for convective storms — values above 500 J/kg indicate thunderstorm potential, above 2500 J/kg severe storms are likely.
+
+---
+
 ## Open TODOs
 
 - [ ] Revisit the world map renderer if Leaflet wrap/scaling remains a product issue
@@ -394,3 +422,4 @@ Rollback does not require:
 - [ ] Set up automated DB backup to NAS
 - [ ] Enable OpenAQ air quality when account works
 - [ ] Add Watchtower for automatic container updates
+- [ ] Expand radiation coverage if more Safecast stations become active
