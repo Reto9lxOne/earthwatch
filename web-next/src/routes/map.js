@@ -341,6 +341,50 @@ async function fetchAllWebcams() {
   return all;
 }
 
+// ── EONET Volcanoes (direct, longer window than collector) ──
+let volcanoCache = null;
+let volcanoCacheTs = 0;
+const VOLCANO_CACHE_TTL = 6 * 60 * 60 * 1000; // 6h
+
+async function fetchVolcanoesFromEONET() {
+  if (volcanoCache && Date.now() - volcanoCacheTs < VOLCANO_CACHE_TTL) return volcanoCache;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const resp = await fetch(
+      'https://eonet.gsfc.nasa.gov/api/v3/events?limit=200&days=365&status=all&category=volcanoes',
+      { signal: controller.signal }
+    );
+    if (!resp.ok) throw new Error(`EONET HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const features = (data.events ?? []).flatMap(ev => {
+      const geo = ev.geometry ?? [];
+      if (!geo.length) return [];
+      const latest = geo[geo.length - 1];
+      const [lon, lat] = latest.coordinates;
+      return [{
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [lon, lat] },
+        properties: {
+          eventId: ev.id,
+          title:   ev.title,
+          category: 'volcanoes',
+          status:  ev.closed ? 'closed' : 'open',
+          time:    latest.date,
+        },
+      }];
+    });
+
+    volcanoCache = features;
+    volcanoCacheTs = Date.now();
+    return features;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // ── OSM Nuclear Power Plants ─────────────────────────────
 let nuclearPlantsCache = null;
 let nuclearPlantsCacheTs = 0;
@@ -558,23 +602,11 @@ export async function mapRoutes(fastify) {
     };
   });
 
-  fastify.get('/api/v1/map/layers/volcanoes', async (request) => {
-    const rows = await listRecentVolcanoes(fastify.db, {
-      limit: request.query.limit,
-    });
-
+  fastify.get('/api/v1/map/layers/volcanoes', async () => {
+    const features = await fetchVolcanoesFromEONET();
     return {
-      data: {
-        type: 'FeatureCollection',
-        features: rows
-          .filter((row) => row.lat != null && row.lon != null)
-          .map(toNaturalEventFeature),
-      },
-      meta: {
-        layer: 'volcanoes',
-        count: rows.length,
-        generatedAt: new Date().toISOString(),
-      },
+      data: { type: 'FeatureCollection', features },
+      meta: { layer: 'volcanoes', count: features.length, generatedAt: new Date().toISOString() },
     };
   });
 
