@@ -12,6 +12,7 @@ const state = {
     lightning: true,
     radiation: true,
     nuclear: true,
+    webcams: true,
   },
   markers: {
     earthquakes: [],
@@ -21,6 +22,7 @@ const state = {
     volcanoes: [],
     radiation: [],
     nuclear: [],
+    webcams: [],
   },
   ships: new Map(),
   feed: [],
@@ -536,6 +538,50 @@ async function loadNuclearPlants() {
   });
 }
 
+function webcamSourceLabel(source) {
+  if (source === 'tfl')      return 'TfL JamCam';
+  if (source === 'caltrans') return 'Caltrans';
+  if (source === 'windy')    return 'Windy';
+  return source;
+}
+
+async function loadWebcams() {
+  const payload = await fetchJson('/api/v1/map/layers/webcams');
+  const features = payload.data.features ?? [];
+
+  clearMarkers('webcams');
+
+  features.forEach((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const p = feature.properties;
+
+    const marker = L.marker([lat, lng], {
+      icon: createDivIcon(
+        'event-icon-wrap',
+        '<div class="event-icon" aria-hidden="true">📷</div>',
+        22
+      ),
+    });
+
+    const sourceLabel = webcamSourceLabel(p.source);
+    const location = [p.city, p.country].filter(Boolean).join(', ');
+
+    marker.on('mouseover', () => {
+      const img = p.imageUrl
+        ? `<img src="${p.imageUrl}" style="width:200px;height:112px;object-fit:cover;display:block;margin-top:6px;border-radius:3px;" loading="lazy" onerror="this.style.display='none'">`
+        : '';
+      popup
+        .setLatLng(marker.getLatLng())
+        .setContent(`<strong>${p.name}</strong><br><span style="opacity:.7">${sourceLabel}${location ? ' · ' + location : ''}</span>${img}`)
+        .openOn(map);
+    });
+    marker.on('mouseout', () => map.closePopup(popup));
+
+    if (markerVisible('webcams')) marker.addTo(map);
+    state.markers.webcams.push(marker);
+  });
+}
+
 let heatLayer = null;
 
 async function loadLightningPotential() {
@@ -879,6 +925,7 @@ async function init() {
     loadLightningPotential(),
     loadRadiation(),
     loadNuclearPlants(),
+    loadWebcams(),
     loadSolar(),
     loadNoaaAlerts(),
     loadIss(),
@@ -895,6 +942,7 @@ async function init() {
   schedule(3600000, loadLightningPotential);
   schedule(14400000, loadRadiation);
   schedule(86400000, loadNuclearPlants);
+  schedule(3600000, loadWebcams);
   schedule(1800000, loadSolar);
   schedule(300000, loadNoaaAlerts);
   schedule(10000, loadIss);

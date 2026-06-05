@@ -38,4 +38,5 @@ export const env = Object.freeze({
   requestTimeoutMs: readInt('REQUEST_TIMEOUT_MS', 10000),
   externalCacheTtlMs: readInt('EXTERNAL_CACHE_TTL_MS', 60000),
   publicBaseUrl: readString('PUBLIC_BASE_URL', ''),
+  windyWebcamsKey: readString('WINDY_WEBCAMS_KEY', ''),
 });
