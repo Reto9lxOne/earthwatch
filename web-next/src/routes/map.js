@@ -14,7 +14,7 @@ const WEBCAM_TTL = 60 * 60 * 1000; // 60 min
 async function fetchWindyWebcams() {
   if (!env.windyWebcamsKey) return [];
   const limit = 50;  // free tier max per request
-  const pages = 20;  // 1000 most-viewed cameras total
+  const pages = 2;   // 100 most-viewed cameras — enough for a global overview
   const results = [];
 
   for (let page = 0; page < pages; page++) {
@@ -118,16 +118,12 @@ async function fetchCaltransWebcams() {
 async function fetchAllWebcams() {
   if (webcamCache && Date.now() - webcamCacheTs < WEBCAM_TTL) return webcamCache;
 
-  const [windy, tfl, caltrans] = await Promise.allSettled([
+  const [windy] = await Promise.allSettled([
     fetchWindyWebcams(),
-    fetchTflWebcams(),
-    fetchCaltransWebcams(),
   ]);
 
   const all = [
     ...(windy.status === 'fulfilled' ? windy.value : []),
-    ...(tfl.status === 'fulfilled' ? tfl.value : []),
-    ...(caltrans.status === 'fulfilled' ? caltrans.value : []),
   ];
 
   webcamCache = all;

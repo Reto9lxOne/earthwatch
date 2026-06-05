@@ -12,7 +12,7 @@ const state = {
     lightning: true,
     radiation: true,
     nuclear: true,
-    webcams: true,
+    webcams: false,
   },
   markers: {
     earthquakes: [],
