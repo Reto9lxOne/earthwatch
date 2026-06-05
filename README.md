@@ -1,6 +1,6 @@
 # Earthwatch
 
-Earthwatch is a Docker-based live monitoring stack for earthquakes, natural events, ships, solar activity, NOAA alerts, ISS position tracking, volcanic activity, storm potential, radiation levels, and nuclear plant locations.
+Earthwatch is a Docker-based live monitoring stack for earthquakes, volcanic activity, natural events, ships, solar activity, space stations, NOAA alerts, storm potential, radiation, nuclear plants, air quality, flights, aurora, internet outages, sea surface temperature, CO₂, and webcams.
 
 It combines a Node.js dashboard/API service, a TimescaleDB-backed collector pipeline, a small proxy service for external feeds, and Grafana for analytics and alerting.
 
@@ -17,19 +17,31 @@ It combines a Node.js dashboard/API service, a TimescaleDB-backed collector pipe
 
 ## Data Sources
 
-| Layer | API | Mode | Status |
-|---|---|---|---|
-| 🔴 Earthquakes | USGS GeoJSON Feed | Poll 5min | ✅ Active |
-| 🌋 Volcanic activity | NASA EONET (dedicated layer) | Poll 5min | ✅ Active |
-| 🌪 Natural events | NASA EONET (excl. volcanoes) | Poll 5min | ✅ Active |
-| ☀️ Solar activity | NASA DONKI (via proxy) | Poll 30min | ✅ Active |
-| 🚢 Ships | aisstream.io (WebSocket proxy) | Live | ✅ Active |
-| 🛸 ISS | wheretheiss.at | Poll 10s | ✅ Active |
-| 🌩 NOAA Alerts | api.weather.gov | Poll 5min | ✅ Active |
-| ⛈ Storm potential | Open-Meteo CAPE (15° global grid) | Poll 1h | ✅ Active |
-| ☢️ Radiation | Safecast (µSv/h crowd-sourced) | Poll 4h | ✅ Active (sparse) |
-| ⚛️ Nuclear plants | OpenStreetMap Overpass | Cache 24h | ✅ Active |
-| 💨 Air Quality | OpenAQ v3 | Poll 5min | ⏸ Disabled (needs free API key) |
+| Layer | API | Mode | Default | Status |
+|---|---|---|---|---|
+| 🔴 Earthquakes | USGS GeoJSON Feed | Poll 5min | ✅ on | ✅ Active |
+| 🌪 Natural events | NASA EONET (excl. volcanoes) | Poll 5min | ✅ on | ✅ Active |
+| 🌋 Volcanoes | NASA EONET (direct, 365d) | Cache 6h | ✅ on | ✅ Active |
+| ☀️ Solar activity | NASA DONKI (via proxy) | Poll 30min | ✅ on | ✅ Active |
+| 🌩 NOAA Alerts | api.weather.gov | Poll 5min | ✅ on | ✅ Active |
+| ☢️ Radiation | Safecast µSv/h (crowd-sourced) | Poll 4h | ✅ on | ✅ Active (sparse) |
+| 🌐 Internet outages | IODA (Georgia Tech), country-level | Poll 15min | ✅ on | ✅ Active |
+| 🛰️ Space Stations | TLE propagation (ISS + Tiangong) | Animate 30s | ✅ on | ✅ Active |
+| ⛈ Storm potential | Open-Meteo CAPE (15° grid) | Cache 1h | ☐ off | ✅ Active |
+| 🚢 Ships | aisstream.io (WebSocket proxy) | Live | ☐ off | ✅ Active |
+| ✈️ Flights | OpenSky Network | Cache 60s | ☐ off | ✅ Active |
+| ⚛️ Nuclear plants | OpenStreetMap Overpass | Cache 24h | ☐ off | ✅ Active |
+| 🌊 Sea surface temp | NOAA ERDDAP blended SST | Cache 24h | ☐ off | ✅ Active |
+| 🌌 Aurora | NOAA SWPC ovation oval | Cache 1h | ☐ off | ✅ Active |
+| 📷 Webcams | Windy Webcams (top 100) | Cache 1h | ☐ off | ✅ Active (needs key) |
+| 💨 Air quality | WAQI (~1800 stations, AQI) | Cache 1h | ☐ off | ✅ Active (needs token) |
+| 🛰 Starlink | CelesTrak TLE | Cache 1h | ☐ off | ✅ Active |
+| 🌤 Weather Sats | CelesTrak TLE (NOAA/GOES/MetOp) | Cache 1h | ☐ off | ✅ Active |
+
+**Panel stats (always visible, no toggle):**
+- 🌑 Moon phase — calculated client-side, no API
+- CO₂ — NOAA Mauna Loa daily reading, cache 6h
+- ISS position panel — wheretheiss.at, poll 10s
 
 ## Architecture
 
@@ -42,10 +54,8 @@ browser -> nginx -> proxy -> AIS stream / NASA DONKI proxy
 collector -> upstream APIs -> TimescaleDB
 ```
 
-Why this is the preferred shape:
-- the dashboard is no longer a single static HTML file with direct browser calls to multiple third-party APIs
 - frontend assets and API routes live in one deployable Node.js service
-- most map layers are now served from local data in TimescaleDB for better performance and consistency
+- most map layers are served from local data in TimescaleDB or short-lived server-side caches
 - `/health` is provided by the app and is suitable for Docker and edge checks
 
 ## Requirements
@@ -75,25 +85,23 @@ cp .env.example .env
 nano .env
 ```
 
-Fill in all values:
+Required values:
 ```env
 DB_PASSWORD=strong_password
 GRAFANA_PASSWORD=strong_password
 TELEGRAM_BOT_TOKEN=your_bot_token
-TELEGRAM_CHAT_ID=your_chat_id
-NASA_API_KEY=your_nasa_key          # get free at api.nasa.gov
-OPENAQ_API_KEY=your_openaq_key      # get free at explore.openaq.org/register
-AISSTREAM_TOKEN=your_aisstream_key  # get free at aisstream.io
+TELEGRAM_CHAT_ID=your_chat_id         # must be a string with quotes in telegram.yml!
+NASA_API_KEY=your_nasa_key            # free at api.nasa.gov
+AISSTREAM_TOKEN=your_aisstream_key    # free at aisstream.io
+```
+
+Optional (enables additional layers):
+```env
+WINDY_WEBCAMS_KEY=your_key            # free at api.windy.com — select Webcams API
+WAQI_TOKEN=your_token                 # free at aqicn.org/data-platform/token/
 ```
 
 ### 4. Configure Grafana alerting
-
-By default, the repository keeps Telegram alert settings in Grafana provisioning.
-
-Important:
-- keep real credentials in `.env`, never in git
-- verify whether your Grafana provisioning path resolves env vars correctly in your environment
-- if your setup does not expand them, replace the placeholders locally on the host, not in the repo
 
 ```bash
 nano grafana/provisioning/alerting/telegram.yml
@@ -102,18 +110,16 @@ nano grafana/provisioning/alerting/telegram.yml
 Expected values:
 ```yaml
 bottoken: "your_bot_token"   # from @BotFather on Telegram
-chatid: "your_chat_id"       # must be a string with quotes!
+chatid: !!str 123456789      # must use !!str tag to prevent YAML number coercion
 ```
 
 To get your Chat ID:
 1. Message `@BotFather` on Telegram → `/newbot` → get `BOT_TOKEN`
 2. Send `/start` to your new bot
-3. Open in browser: `https://api.telegram.org/bot<TOKEN>/getUpdates`
+3. Open: `https://api.telegram.org/bot<TOKEN>/getUpdates`
 4. Find `"chat":{"id":XXXXXXX}` — that number is your Chat ID
 
 ### 5. SSL Certificates
-
-If you are terminating TLS with nginx in this repo, place your certs in `nginx/ssl/`.
 
 ```bash
 mkdir -p nginx/ssl
@@ -143,39 +149,30 @@ aisstream.io WebSocket → proxy container → /ws/ships → nginx → dashboard
 3. Add to `.env`: `AISSTREAM_TOKEN=your_token`
 4. Rebuild proxy: `docker compose up -d --build proxy`
 
-**Endpoints provided by proxy:**
-- `/ws/ships` — live WebSocket stream
-- `/api/ships/snapshot` — REST snapshot
-- `/api/health` — proxy health check
-
 ---
 
 ## Web Service
 
-Main routes:
-- `/` — Earthwatch dashboard served by `web-next`
-- `/health` — application and database health
-- `/api/v1/map/summary` — dashboard summary metrics
-- `/api/v1/map/layers/earthquakes` — earthquake layer from TimescaleDB
-- `/api/v1/map/layers/natural-events` — natural events layer (excl. volcanoes) from TimescaleDB
-- `/api/v1/map/layers/volcanoes` — volcanic activity layer from TimescaleDB (60-day window)
-- `/api/v1/map/layers/solar-events` — solar event feed from TimescaleDB
-- `/api/v1/map/layers/radiation` — radiation measurements from TimescaleDB (latest per ~1° cell)
-- `/api/v1/map/layers/nuclear-plants` — nuclear plant locations from OSM Overpass (24h cache)
-- `/api/v1/lightning/potential` — CAPE-based storm heatmap grid from Open-Meteo (1h cache)
-- `/api/v1/external/iss` — cached ISS status
-- `/api/v1/external/noaa-alerts` — cached NOAA alerts
-
-Current frontend notes:
-- the live dashboard uses a tuned Leaflet map with server-backed layers
-- ships load from `/api/ships/snapshot` first and then continue over `/ws/ships`
-- the crew/astronaut panel has been removed from the UI
-
-Operational commands:
-```bash
-docker compose up -d --build web-next nginx
-docker compose logs -f web-next nginx
-docker compose exec web-next wget -qO- http://127.0.0.1:3001/health
+Main API routes:
+```
+GET /health                               app + database health
+GET /api/v1/map/summary                   dashboard summary metrics
+GET /api/v1/map/layers/earthquakes        USGS earthquakes (TimescaleDB, last 24h)
+GET /api/v1/map/layers/natural-events     EONET events excl. volcanoes (TimescaleDB, 30d)
+GET /api/v1/map/layers/volcanoes          EONET volcanic activity (direct, 365d, 6h cache)
+GET /api/v1/map/layers/solar-events       NASA DONKI events (TimescaleDB)
+GET /api/v1/map/layers/radiation          Safecast µSv/h (TimescaleDB, latest per ~1° cell)
+GET /api/v1/map/layers/nuclear-plants     OSM Overpass nuclear facilities (24h cache)
+GET /api/v1/map/layers/air-quality        WAQI AQI stations global (1h cache)
+GET /api/v1/map/layers/flights            OpenSky airborne aircraft (60s cache)
+GET /api/v1/map/layers/aurora             NOAA aurora oval (1h cache)
+GET /api/v1/map/layers/internet-outages   IODA country-level outages (15min cache)
+GET /api/v1/map/layers/webcams            Windy top-100 webcams (1h cache)
+GET /api/v1/map/layers/sst                NOAA ERDDAP blended SST (24h cache)
+GET /api/v1/lightning/potential           Open-Meteo CAPE grid (1h cache)
+GET /api/v1/external/iss                  ISS position via wheretheiss.at
+GET /api/v1/external/noaa-alerts          NOAA severe weather alerts
+GET /api/v1/external/co2                  NOAA Mauna Loa CO₂ (6h cache)
 ```
 
 ---
@@ -184,31 +181,11 @@ docker compose exec web-next wget -qO- http://127.0.0.1:3001/health
 
 Solar activity data is fetched server-side — the NASA API key never appears in the browser or in git.
 
-**How it works:**
 ```
 dashboard → /api/donki/{type} → proxy → api.nasa.gov (with key) → dashboard
 ```
 
-**Endpoint:** `/api/donki/{CME|FLR|GST|SEP}?startDate=...&endDate=...`
-
----
-
-## Enable Air Quality (OpenAQ)
-
-Air quality is disabled by default. To enable:
-
-1. Register at **explore.openaq.org/register** (free)
-2. Get your API key from account settings
-3. Add to `.env`: `OPENAQ_API_KEY=your_key`
-4. Add to `docker-compose.yml` under collector environment:
-   ```yaml
-   OPENAQ_API_KEY: ${OPENAQ_API_KEY}
-   ```
-5. In `collector/index.js` uncomment in `runAll()`:
-   ```js
-   await collectAirQuality();
-   ```
-6. Rebuild: `docker compose up -d --build collector`
+Endpoint: `/api/donki/{CME|FLR|GST|SEP}?startDate=...&endDate=...`
 
 ---
 
@@ -220,7 +197,30 @@ Configured alerts:
 - 🌊 Tsunami Warning
 - ☀️ Geomagnetic Storm (Kp5+)
 - ⚠️ Collector not running for 30 min
-- 💨 Poor Air Quality (PM2.5 > 55) — when AQ enabled
+
+---
+
+## Layer Notes
+
+### Radiation
+Safecast crowd-sourced µSv/h measurements. Coverage is sparse (typically 2–5 active stations globally). Collector runs every 4 hours.
+
+Color scale: 🟢 ≤0.1 · 🟡 0.1–0.3 · 🟠 0.3–1.0 · 🔴 >1.0 µSv/h
+
+### Storm Potential (CAPE)
+Open-Meteo CAPE on a ~10° global grid. CAPE > 500 J/kg = thunderstorm potential, > 2500 J/kg = severe storms likely. Updates hourly.
+
+### Sea Surface Temperature
+NOAA blended SST, stride-40 query from ERDDAP (~13k ocean points). Color: dark blue (-2°C) → red (34°C). Updates daily.
+
+### Air Quality
+WAQI global bounding-box query. ~1800 stations, AQI scale: 🟢 0–50 (Good) · 🟡 51–100 (Moderate) · 🟠 101–150 (Unhealthy/sensitive) · 🔴 151–200 (Unhealthy) · 🟣 201–300 (Very Unhealthy) · ⬛ 301+ (Hazardous). Requires free token at aqicn.org/data-platform/token/.
+
+### Internet Outages
+IODA (Georgia Tech) country-level outage alerts from the last 48 hours. 🔴 = critical, 🟡 = degraded.
+
+### Volcanoes
+Direct EONET fetch (last 365 days) rather than TimescaleDB, since the collector only started recently and has no historical backfill.
 
 ---
 
@@ -228,54 +228,11 @@ Configured alerts:
 
 | Issue | Cause | Fix |
 |---|---|---|
-| Grafana crashes on start | Telegram token not set in `telegram.yml` | Enter token manually (see step 4) |
-| `chatid` parse error in Grafana | chatid must be a string | Use quotes: `chatid: "123456"` |
+| Grafana crashes on start | Telegram token not set in `telegram.yml` | Enter token manually (see setup step 4) |
+| `chatid` parse error in Grafana | chatid must be a string | Use `!!str` tag: `chatid: !!str 123456` |
 | worldmap-panel Angular warning | Deprecated Angular plugin | Non-critical, ignore |
-| OpenAQ HTTP 410 Gone | v2 API retired Jan 2025 | v3 used now, needs free API key |
-| Map scaling and wrap edge can still look imperfect | Leaflet world wrap limitation | Known issue, evaluate a non-tiled renderer in a later pass |
+| Map edge wrap imperfect | Leaflet world wrap limitation | Known, evaluate non-tiled renderer later |
 | Alert rules YAML error | Invalid time range in provisioning | `rules.yml` disabled, configure via Grafana UI |
-
----
-
-## Directory Structure
-
-```
-earthwatch/
-├── docker-compose.yml
-├── setup.sh
-├── .env.example
-├── .gitignore
-├── nginx/
-│   ├── nginx.conf
-│   └── ssl/              ← place certs here (not in git!)
-├── collector/
-│   ├── Dockerfile
-│   ├── index.js          ← polls USGS, EONET, DONKI, Safecast, OpenAQ
-│   └── package.json
-├── proxy/
-│   ├── Dockerfile
-│   ├── index.js          ← AIS WebSocket + NASA DONKI proxy
-│   └── package.json
-├── db/
-│   └── init.sql
-├── grafana/
-│   └── provisioning/
-│       ├── datasources/
-│       │   └── timescaledb.yml
-│       ├── dashboards/
-│       │   └── dashboards.yml
-│       └── alerting/
-│           ├── telegram.yml      ← enter real credentials here!
-│           └── rules.yml.disabled
-└── web-next/
-    ├── public/
-    │   ├── index.html
-    │   └── assets/
-    └── src/
-        ├── routes/
-        ├── repositories/
-        └── plugins/
-```
 
 ---
 
@@ -288,24 +245,16 @@ docker compose up -d
 # View logs
 docker compose logs -f
 docker compose logs -f collector
-docker compose logs -f proxy
-docker compose logs -f grafana
-
-# Restart single service
-docker compose restart proxy
-docker compose restart nginx
-docker compose restart web-next
+docker compose logs -f web-next
 
 # Rebuild after code changes
-docker compose up -d --build proxy
+docker compose up -d --build web-next
 docker compose up -d --build collector
-docker compose up -d --build web-next nginx
+docker compose up -d --build proxy
 
-# Check proxy health
-curl -k https://<your-domain>/api/health
-
-# Check web health
+# Check health
 curl -k https://<your-domain>/health
+curl -k https://<your-domain>/api/health
 
 # DB shell
 docker exec -it earthwatch-db psql -U earthwatch
@@ -325,101 +274,26 @@ git pull && docker compose up -d --build
 
 ## Deployment Notes
 
-The recommended deployment model is Docker Compose with nginx in front of `web-next`, `proxy`, Grafana, and TimescaleDB.
-
-Suggested approach:
 - keep `web-next` internal-only and route traffic through nginx
 - keep browser-facing secrets out of frontend code
-- use `/health` for application checks and `/api/health` for proxy checks
 - treat `.env` as host-local runtime config and never commit it
+- `WINDY_WEBCAMS_KEY` and `WAQI_TOKEN` are optional — layers simply stay empty without them
 
 ### Health Checks
 
-There are three health layers:
-
-1. Application health:
-   - `GET /health` inside `web-next`
-2. Container health:
-   - Compose healthcheck against `http://127.0.0.1:3001/health`
-3. Edge reachability:
-   - `https://<your-domain>/health`
-
-Quick verification:
-
 ```bash
-curl -k https://<your-domain>/health
-curl -k https://<your-domain>/api/v1/map/layers/earthquakes
-docker compose ps web-next
+curl -k https://<your-domain>/health           # app + DB
+curl -k https://<your-domain>/api/health       # proxy (AIS stream status)
+docker compose ps
 ```
-
-### Logging Strategy
-
-`web-next` logs to stdout/stderr using Fastify's built-in structured logger.
-
-Production usage:
-
-```bash
-docker compose logs -f web-next
-docker compose logs -f nginx
-```
-
-Current strategy:
-- structured JSON logs in production
-- no file-based logging in container
-- rely on Docker log collection
-- keep secrets out of logs
-
-### Rollback Plan
-
-The rollout is additive, so rollback is simple and non-destructive.
-
-1. Revert the nginx root routing change back to the previous static dashboard or prior commit.
-2. Restart nginx and web-next:
-   ```bash
-   docker compose up -d --build nginx web-next
-   ```
-3. Optionally stop `web-next`:
-   ```bash
-   docker compose stop web-next
-   ```
-
-Rollback does not require:
-- deleting volumes
-- changing database data
-- touching existing dashboard files
-- changing secrets
-
-### Important Safety Notes
-
-- `web-next` is internal-only; it does not bind a host port directly
-- existing routes `/api/health`, `/api/donki/*`, `/api/ships/*`, and `/ws/ships` remain unchanged
-- no existing persistent data paths are modified
-
-## Radiation Layer Notes
-
-The radiation layer uses [Safecast](https://safecast.org) crowd-sourced measurements (`unit=usv`, µSv/h). Coverage is sparse — typically 2–5 active stations globally. The collector fetches the last 20 pages of recent measurements every 4 hours and stores the latest reading per ~1° grid cell.
-
-Color scale:
-- 🟢 Green: ≤ 0.1 µSv/h (normal background)
-- 🟡 Yellow: 0.1–0.3 µSv/h (slightly elevated)
-- 🟠 Orange: 0.3–1.0 µSv/h (elevated)
-- 🔴 Red: > 1.0 µSv/h (significantly elevated)
-
-The nuclear plant layer (⚛️) shows 200+ facilities from OpenStreetMap and is refreshed every 24 hours. It includes power plants, research reactors, and fuel processing facilities.
-
----
-
-## Storm Potential Layer Notes
-
-The lightning/storm heatmap uses [Open-Meteo](https://open-meteo.com)'s CAPE (Convective Available Potential Energy) variable on a 15° global grid, refreshed hourly. CAPE measures the energy available for convective storms — values above 500 J/kg indicate thunderstorm potential, above 2500 J/kg severe storms are likely.
 
 ---
 
 ## Open TODOs
 
-- [ ] Revisit the world map renderer if Leaflet wrap/scaling remains a product issue
 - [ ] Build Grafana dashboards with TimescaleDB data
-- [ ] Set up automated DB backup to NAS
-- [ ] Enable OpenAQ air quality when account works
 - [ ] Add Watchtower for automatic container updates
-- [ ] Expand radiation coverage if more Safecast stations become active
+- [ ] Grafana alerts for new layers (Aurora, Internet Outages)
+- [ ] History slider — browse 30 days of events (deferred, needs more data)
+- [ ] Revisit map renderer if Leaflet wrap/scaling remains a problem
+- [ ] Expand radiation coverage when more Safecast stations come online
