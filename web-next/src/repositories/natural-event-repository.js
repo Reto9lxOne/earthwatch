@@ -46,7 +46,7 @@ export async function listRecentVolcanoes(db, options = {}) {
        lat,
        lon
      FROM natural_events
-     WHERE time >= NOW() - INTERVAL '60 days'
+     WHERE time >= NOW() - INTERVAL '365 days'
        AND category = 'volcanoes'
      ORDER BY time DESC
      LIMIT $1`,
