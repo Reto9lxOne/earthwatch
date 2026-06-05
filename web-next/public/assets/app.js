@@ -185,6 +185,29 @@ function setHtml(id, html) {
   }
 }
 
+function updateMoonPhase() {
+  const SYNODIC = 29.530588853; // days
+  // Known new moon: 2000-01-06T18:14:00Z
+  const REF = new Date('2000-01-06T18:14:00Z').getTime();
+  const age = ((Date.now() - REF) / 86400000) % SYNODIC;
+  const illumination = (1 - Math.cos(2 * Math.PI * age / SYNODIC)) / 2;
+
+  let emoji, name;
+  if (age < 1.85)        { emoji = '🌑'; name = 'New Moon'; }
+  else if (age < 7.38)   { emoji = '🌒'; name = 'Waxing Crescent'; }
+  else if (age < 9.22)   { emoji = '🌓'; name = 'First Quarter'; }
+  else if (age < 14.77)  { emoji = '🌔'; name = 'Waxing Gibbous'; }
+  else if (age < 16.61)  { emoji = '🌕'; name = 'Full Moon'; }
+  else if (age < 22.15)  { emoji = '🌖'; name = 'Waning Gibbous'; }
+  else if (age < 23.99)  { emoji = '🌗'; name = 'Last Quarter'; }
+  else                   { emoji = '🌘'; name = 'Waning Crescent'; }
+
+  setText('moon-emoji', emoji);
+  setText('moon-phase-name', name);
+  setText('moon-illumination', `${Math.round(illumination * 100)}%`);
+  setText('moon-age', `${age.toFixed(1)}d`);
+}
+
 function updateClock() {
   const now = new Date();
   setText('clock-value', now.toISOString().slice(11, 19));
@@ -1033,7 +1056,9 @@ document.querySelectorAll('[data-layer]').forEach((button) => {
 
 async function init() {
   updateClock();
+  updateMoonPhase();
   window.setInterval(updateClock, 1000);
+  window.setInterval(updateMoonPhase, 3600000);
 
   await Promise.all([
     loadSummary(),
