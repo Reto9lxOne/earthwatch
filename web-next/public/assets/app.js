@@ -16,7 +16,7 @@ const state = {
     aurora: false,
     outages: true,
     sst: false,
-    airquality: true,
+    airquality: false,
   },
   markers: {
     earthquakes: [],
