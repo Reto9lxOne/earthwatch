@@ -6,6 +6,44 @@ import { listRecentNaturalEvents, listRecentVolcanoes } from '../repositories/na
 import { listRecentSolarEvents } from '../repositories/solar-event-repository.js';
 import { listRecentRadiation } from '../repositories/radiation-repository.js';
 
+// ── WAQI Air Quality ─────────────────────────────────────
+let aqCache = null;
+let aqCacheTs = 0;
+const AQ_CACHE_TTL = 60 * 60 * 1000; // 1h
+
+async function fetchAirQuality() {
+  if (aqCache && Date.now() - aqCacheTs < AQ_CACHE_TTL) return aqCache;
+  if (!env.waqiToken) return [];
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const resp = await fetch(
+      `https://api.waqi.info/map/bounds/?token=${env.waqiToken}&latlng=-60,-180,60,180`,
+      { signal: controller.signal }
+    );
+    if (!resp.ok) throw new Error(`WAQI HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const stations = (data.data ?? [])
+      .filter(s => s.lat != null && s.lon != null && s.aqi !== '-' && /^\d+$/.test(String(s.aqi)))
+      .map(s => ({
+        uid:  s.uid,
+        lat:  s.lat,
+        lon:  s.lon,
+        aqi:  parseInt(s.aqi, 10),
+        name: s.station?.name || null,
+        time: s.station?.time || null,
+      }));
+
+    aqCache = stations;
+    aqCacheTs = Date.now();
+    return stations;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // ── NOAA CO₂ (Mauna Loa) ─────────────────────────────────
 let co2Cache = null;
 let co2CacheTs = 0;
@@ -632,6 +670,21 @@ export async function mapRoutes(fastify) {
       meta: {
         generatedAt: new Date().toISOString(),
       },
+    };
+  });
+
+  fastify.get('/api/v1/map/layers/air-quality', async () => {
+    const stations = await fetchAirQuality();
+    return {
+      data: {
+        type: 'FeatureCollection',
+        features: stations.map(s => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [s.lon, s.lat] },
+          properties: { uid: s.uid, aqi: s.aqi, name: s.name, time: s.time },
+        })),
+      },
+      meta: { layer: 'air-quality', count: stations.length, generatedAt: new Date().toISOString() },
     };
   });
 

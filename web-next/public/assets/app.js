@@ -16,6 +16,7 @@ const state = {
     aurora: false,
     outages: true,
     sst: false,
+    airquality: true,
   },
   markers: {
     earthquakes: [],
@@ -27,6 +28,7 @@ const state = {
     webcams: [],
     flights: [],
     outages: [],
+    airquality: [],
   },
   ships: new Map(),
   feed: [],
@@ -609,6 +611,50 @@ async function loadWebcams() {
   });
 }
 
+function aqiColor(aqi) {
+  if (aqi <= 50)  return '#00e400';
+  if (aqi <= 100) return '#ffff00';
+  if (aqi <= 150) return '#ff7e00';
+  if (aqi <= 200) return '#ff0000';
+  if (aqi <= 300) return '#8f3f97';
+  return '#7e0023';
+}
+
+function aqiLabel(aqi) {
+  if (aqi <= 50)  return 'Good';
+  if (aqi <= 100) return 'Moderate';
+  if (aqi <= 150) return 'Unhealthy (sensitive)';
+  if (aqi <= 200) return 'Unhealthy';
+  if (aqi <= 300) return 'Very Unhealthy';
+  return 'Hazardous';
+}
+
+async function loadAirQuality() {
+  const payload = await fetchJson('/api/v1/map/layers/air-quality');
+  const features = payload.data.features ?? [];
+
+  clearMarkers('airquality');
+
+  features.forEach((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const { aqi, name } = feature.properties;
+    const color = aqiColor(aqi);
+
+    const marker = L.circleMarker([lat, lng], {
+      renderer: canvasRenderer,
+      radius: aqi > 150 ? 6 : 4,
+      color,
+      weight: 1,
+      fillColor: color,
+      fillOpacity: 0.7,
+    });
+
+    bindHover(marker, `💨 AQI ${aqi} — ${aqiLabel(aqi)}`, name || '');
+    if (markerVisible('airquality')) marker.addTo(map);
+    state.markers.airquality.push(marker);
+  });
+}
+
 async function loadFlights() {
   const payload = await fetchJson('/api/v1/map/layers/flights');
   const features = payload.data.features ?? [];
@@ -1072,6 +1118,7 @@ async function init() {
     loadAurora(),
     loadOutages(),
     loadFlights(),
+    loadAirQuality(),
     loadSST(),
     loadCO2(),
     loadSolar(),
@@ -1095,6 +1142,7 @@ async function init() {
   schedule(86400000, loadSST);
   schedule(21600000, loadCO2);
   schedule(14400000, loadRadiation);
+  schedule(3600000, loadAirQuality);
   schedule(86400000, loadNuclearPlants);
   schedule(3600000, loadWebcams);
   schedule(1800000, loadSolar);

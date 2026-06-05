@@ -39,4 +39,5 @@ export const env = Object.freeze({
   externalCacheTtlMs: readInt('EXTERNAL_CACHE_TTL_MS', 60000),
   publicBaseUrl: readString('PUBLIC_BASE_URL', ''),
   windyWebcamsKey: readString('WINDY_WEBCAMS_KEY', ''),
+  waqiToken: readString('WAQI_TOKEN', ''),
 });

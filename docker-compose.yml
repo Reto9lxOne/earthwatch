@@ -128,6 +128,7 @@ services:
       DB_USER: earthwatch
       DB_PASSWORD: ${DB_PASSWORD}
       WINDY_WEBCAMS_KEY: ${WINDY_WEBCAMS_KEY}
+      WAQI_TOKEN: ${WAQI_TOKEN}
     depends_on:
       timescaledb:
         condition: service_healthy
