@@ -22,7 +22,11 @@ async function fetchNuclearPlants() {
   try {
     const resp = await fetch('https://overpass-api.de/api/interpreter', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'earthwatch/1.0 (homelab monitoring; contact via github)',
+        'Accept': 'application/json',
+      },
       body: 'data=' + encodeURIComponent(OVERPASS_QUERY),
       signal: controller.signal,
     });
