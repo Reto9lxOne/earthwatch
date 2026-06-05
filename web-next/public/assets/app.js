@@ -6,7 +6,6 @@ const state = {
     earthquakes: true,
     events: true,
     ships: false,
-    iss: true,
     alerts: true,
     volcanoes: true,
     lightning: true,
@@ -22,7 +21,6 @@ const state = {
     earthquakes: [],
     events: [],
     alerts: [],
-    iss: null,
     volcanoes: [],
     radiation: [],
     nuclear: [],
@@ -99,10 +97,10 @@ async function enableSatGroup(group) {
       g.data = await fetchJson(`/api/satellites/${group}`);
     } catch (e) {
       reportError(`satellites:${group}`, e);
-      if (btn) btn.textContent = { starlink: 'Starlink', weather: 'Weather Sats', stations: 'Stations' }[group];
+      if (btn) btn.textContent = { starlink: 'Starlink', weather: 'Weather Sats', stations: 'Space Stations' }[group];
       return;
     }
-    if (btn) btn.textContent = { starlink: 'Starlink', weather: 'Weather Sats', stations: 'Stations' }[group];
+    if (btn) btn.textContent = { starlink: 'Starlink', weather: 'Weather Sats', stations: 'Space Stations' }[group];
   }
   renderSatGroup(group);
   g.timer = setInterval(() => renderSatGroup(group), 30000);
@@ -845,36 +843,11 @@ async function loadNoaaAlerts() {
 async function loadIss() {
   const payload = await fetchJson('/api/v1/external/iss');
   const iss = payload.data;
-
   setText('iss-lat', `${Number(iss.latitude).toFixed(2)}°`);
   setText('iss-lon', `${Number(iss.longitude).toFixed(2)}°`);
   setText('iss-alt', `${Math.round(iss.altitude)} km`);
   setText('iss-vel', `${Math.round(iss.velocity).toLocaleString()} km/h`);
   setText('iss-visibility', iss.visibility ?? '--');
-
-  const latLng = [iss.latitude, iss.longitude];
-  if (state.markers.iss) {
-    state.markers.iss.setLatLng(latLng);
-  } else {
-    state.markers.iss = L.marker(latLng, {
-      icon: createDivIcon(
-        'event-icon-wrap',
-        '<div class="iss-icon" aria-hidden="true">🛰️</div>',
-        32
-      ),
-    });
-    bindHover(
-      state.markers.iss,
-      'ISS',
-      `${Math.round(iss.velocity).toLocaleString()} km/h • ${iss.visibility ?? 'unknown'}`
-    );
-  }
-
-  if (markerVisible('iss')) {
-    state.markers.iss.addTo(map);
-  } else {
-    state.markers.iss.remove();
-  }
 }
 
 
@@ -1017,15 +990,6 @@ document.querySelectorAll('[data-layer]').forEach((button) => {
       return;
     }
 
-    if (layer === 'iss' && state.markers.iss) {
-      if (state.layers.iss) {
-        state.markers.iss.addTo(map);
-      } else {
-        state.markers.iss.remove();
-      }
-      return;
-    }
-
     if (layer === 'sst' && sstHeatLayer) {
       if (state.layers.sst) {
         sstHeatLayer.addTo(map);
@@ -1092,6 +1056,7 @@ async function init() {
   ]);
 
   connectShips();
+  enableSatGroup('stations');
   hideLoader();
 
   schedule(60000, loadSummary);
