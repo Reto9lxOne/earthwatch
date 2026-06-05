@@ -6,6 +6,143 @@ import { listRecentNaturalEvents, listRecentVolcanoes } from '../repositories/na
 import { listRecentSolarEvents } from '../repositories/solar-event-repository.js';
 import { listRecentRadiation } from '../repositories/radiation-repository.js';
 
+// ── Country centroids for IODA outage layer ──────────────
+const COUNTRY_CENTROIDS = {
+  AF:[33,65],AL:[41,20],DZ:[28,3],AO:[-12,18],AR:[-34,-64],AM:[40,45],AU:[-25,134],AT:[47,14],AZ:[40,48],
+  BS:[24,-76],BH:[26,51],BD:[24,90],BY:[53,28],BE:[51,4],BZ:[17,-89],BJ:[9,2],BO:[-17,-65],BA:[44,17],
+  BW:[-22,24],BR:[-10,-55],BG:[43,25],BF:[13,-2],BI:[-3,30],CM:[6,12],CA:[60,-95],CV:[16,-24],CF:[7,21],
+  TD:[15,19],CL:[-30,-71],CN:[35,105],CO:[4,-72],CD:[-4,25],CG:[-1,15],CR:[10,-84],CI:[7,-6],HR:[45,16],
+  CU:[22,-80],CY:[35,33],CZ:[50,15],DK:[56,10],DO:[19,-71],EC:[-2,-77],EG:[27,30],SV:[14,-89],ET:[8,38],
+  FI:[64,26],FR:[46,2],GA:[-1,12],GM:[13,-16],GE:[42,44],DE:[51,10],GH:[8,-1],GR:[39,22],GT:[15,-90],
+  GN:[11,-11],HT:[19,-73],HN:[15,-87],HU:[47,20],IN:[20,77],ID:[-5,120],IQ:[33,44],IE:[53,-8],IL:[31,35],
+  IT:[43,12],JM:[18,-77],JP:[36,138],JO:[31,36],KZ:[48,68],KE:[1,38],KW:[29,47],KG:[41,75],LA:[18,103],
+  LB:[34,36],LY:[27,17],LT:[56,24],MG:[-20,47],MW:[-13,34],MY:[2,112],MV:[3,73],ML:[17,-4],MR:[20,-12],
+  MX:[23,-102],MD:[47,29],MN:[46,105],MA:[32,-5],MZ:[-18,35],MM:[17,96],NA:[-22,17],NP:[28,84],NL:[52,5],
+  NI:[13,-86],NE:[17,8],NG:[10,8],NO:[60,8],OM:[21,57],PK:[30,69],PA:[9,-80],PG:[-6,147],PY:[-23,-58],
+  PE:[-10,-76],PH:[13,122],PL:[52,20],PT:[39,-8],QA:[25,51],RO:[46,25],RU:[60,100],RW:[-2,30],
+  SA:[24,45],SN:[14,-14],RS:[44,21],SL:[8,-12],SO:[6,46],ZA:[-29,25],SS:[7,30],ES:[40,-4],LK:[7,81],
+  SD:[15,30],SE:[62,15],CH:[47,8],SY:[35,38],TW:[24,121],TJ:[39,71],TZ:[-6,35],TH:[15,101],TG:[8,1],
+  TN:[34,9],TR:[39,35],TM:[40,60],UG:[1,32],UA:[49,32],AE:[24,54],GB:[54,-2],US:[38,-97],UY:[-33,-56],
+  UZ:[41,64],VE:[8,-66],VN:[16,108],VI:[18,-65],YE:[16,48],ZM:[-15,30],ZW:[-20,30],
+  BZ:[17,-89],BW:[-22,24],CI:[7,-6],
+};
+
+// ── OpenSky Flights ───────────────────────────────────────
+let flightCache = null;
+let flightCacheTs = 0;
+const FLIGHT_CACHE_TTL = 60 * 1000; // 60s
+
+async function fetchFlights() {
+  if (flightCache && Date.now() - flightCacheTs < FLIGHT_CACHE_TTL) return flightCache;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const resp = await fetch('https://opensky-network.org/api/states/all', { signal: controller.signal });
+    if (!resp.ok) throw new Error(`OpenSky HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const flights = (data.states ?? [])
+      .filter(s => !s[8] && s[5] != null && s[6] != null) // airborne, has lat/lon
+      .slice(0, 2000)
+      .map(s => ({
+        icao:     s[0],
+        callsign: (s[1] || '').trim() || null,
+        country:  s[2],
+        lon:      s[5],
+        lat:      s[6],
+        altM:     s[7] != null ? Math.round(s[7]) : null,
+        speedMs:  s[9] != null ? Math.round(s[9]) : null,
+        heading:  s[10] != null ? Math.round(s[10]) : null,
+      }));
+
+    flightCache = flights;
+    flightCacheTs = Date.now();
+    return flights;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// ── NOAA Aurora Oval ─────────────────────────────────────
+let auroraCache = null;
+let auroraCacheTs = 0;
+const AURORA_CACHE_TTL = 60 * 60 * 1000; // 60 min
+
+async function fetchAurora() {
+  if (auroraCache && Date.now() - auroraCacheTs < AURORA_CACHE_TTL) return auroraCache;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const resp = await fetch('https://services.swpc.noaa.gov/json/ovation_aurora_latest.json', { signal: controller.signal });
+    if (!resp.ok) throw new Error(`NOAA Aurora HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    const points = (data.coordinates ?? [])
+      .filter(c => c[2] >= 5) // probability >= 5%
+      .map(c => ({ lon: c[0], lat: c[1], prob: c[2] }));
+
+    const result = { observedAt: data['Observation Time'], forecastAt: data['Forecast Time'], points };
+    auroraCache = result;
+    auroraCacheTs = Date.now();
+    return result;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+// ── IODA Internet Outages ─────────────────────────────────
+let outageCache = null;
+let outageCacheTs = 0;
+const OUTAGE_CACHE_TTL = 15 * 60 * 1000; // 15 min
+
+async function fetchOutages() {
+  if (outageCache && Date.now() - outageCacheTs < OUTAGE_CACHE_TTL) return outageCache;
+
+  const since = Math.floor((Date.now() - 48 * 3600 * 1000) / 1000);
+  const until = Math.floor(Date.now() / 1000);
+  const url = `https://api.ioda.inetintel.cc.gatech.edu/v2/outages/alerts?from=${since}&until=${until}&limit=200&entityType=country`;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) throw new Error(`IODA HTTP ${resp.status}`);
+    const data = await resp.json();
+
+    // Keep only the latest critical alert per country
+    const latest = new Map();
+    for (const alert of (data.data ?? [])) {
+      const code = alert.entity?.code?.toUpperCase();
+      if (!code) continue;
+      const existing = latest.get(code);
+      if (!existing || alert.time > existing.time) latest.set(code, alert);
+    }
+
+    const outages = [];
+    for (const [code, alert] of latest) {
+      const centroid = COUNTRY_CENTROIDS[code];
+      if (!centroid) continue;
+      outages.push({
+        code,
+        name:    alert.entity?.name || code,
+        level:   alert.level,
+        source:  alert.datasource,
+        time:    alert.time,
+        lat:     centroid[0],
+        lon:     centroid[1],
+      });
+    }
+
+    outageCache = outages;
+    outageCacheTs = Date.now();
+    return outages;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // ── Webcams (Windy + TfL + Caltrans) ────────────────────
 let webcamCache = null;
 let webcamCacheTs = 0;
@@ -390,6 +527,38 @@ export async function mapRoutes(fastify) {
       meta: {
         generatedAt: new Date().toISOString(),
       },
+    };
+  });
+
+  fastify.get('/api/v1/map/layers/flights', async () => {
+    const flights = await fetchFlights();
+    return {
+      data: { type: 'FeatureCollection', features: flights.map(f => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
+        properties: { icao: f.icao, callsign: f.callsign, country: f.country, altM: f.altM, speedMs: f.speedMs, heading: f.heading },
+      }))},
+      meta: { layer: 'flights', count: flights.length, generatedAt: new Date().toISOString() },
+    };
+  });
+
+  fastify.get('/api/v1/map/layers/aurora', async () => {
+    const data = await fetchAurora();
+    return {
+      data: data.points,
+      meta: { layer: 'aurora', count: data.points.length, observedAt: data.observedAt, forecastAt: data.forecastAt, generatedAt: new Date().toISOString() },
+    };
+  });
+
+  fastify.get('/api/v1/map/layers/internet-outages', async () => {
+    const outages = await fetchOutages();
+    return {
+      data: { type: 'FeatureCollection', features: outages.map(o => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [o.lon, o.lat] },
+        properties: { code: o.code, name: o.name, level: o.level, source: o.source, time: o.time },
+      }))},
+      meta: { layer: 'internet-outages', count: outages.length, generatedAt: new Date().toISOString() },
     };
   });
 

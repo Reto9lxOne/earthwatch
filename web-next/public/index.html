@@ -118,6 +118,9 @@
               <button class="layer-chip is-active" data-layer="radiation">Radiation</button>
               <button class="layer-chip is-active" data-layer="nuclear">Nuclear Plants</button>
               <button class="layer-chip" data-layer="webcams">Webcams</button>
+              <button class="layer-chip" data-layer="flights">Flights</button>
+              <button class="layer-chip" data-layer="aurora">Aurora</button>
+              <button class="layer-chip is-active" data-layer="outages">Internet</button>
               <button class="layer-chip sat-chip" data-satellite="starlink">Starlink</button>
               <button class="layer-chip sat-chip" data-satellite="weather">Weather Sats</button>
               <button class="layer-chip sat-chip" data-satellite="stations">Stations</button>
@@ -176,6 +179,16 @@
 
         <article class="panel">
           <div class="panel-header">
+            <p class="panel-label">Internet outages</p>
+            <span class="panel-badge" id="outage-count">--</span>
+          </div>
+          <div class="list-block" id="outage-list">
+            <p class="empty-state">No active outages</p>
+          </div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-header">
             <p class="panel-label">Solar feed</p>
             <span class="panel-badge" id="solar-feed-count">--</span>
           </div>
@@ -214,6 +227,6 @@
   ></script>
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js"></script>
-  <script src="/assets/app.js?v=20260605e" type="module"></script>
+  <script src="/assets/app.js?v=20260605f" type="module"></script>
 </body>
 </html>

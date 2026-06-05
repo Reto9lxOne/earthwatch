@@ -13,6 +13,9 @@ const state = {
     radiation: true,
     nuclear: true,
     webcams: false,
+    flights: false,
+    aurora: false,
+    outages: true,
   },
   markers: {
     earthquakes: [],
@@ -23,6 +26,8 @@ const state = {
     radiation: [],
     nuclear: [],
     webcams: [],
+    flights: [],
+    outages: [],
   },
   ships: new Map(),
   feed: [],
@@ -582,6 +587,98 @@ async function loadWebcams() {
   });
 }
 
+async function loadFlights() {
+  const payload = await fetchJson('/api/v1/map/layers/flights');
+  const features = payload.data.features ?? [];
+
+  clearMarkers('flights');
+
+  features.forEach((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const p = feature.properties;
+    const alt = p.altM != null ? `${Math.round(p.altM / 0.3048 / 100) * 100} ft` : '--';
+    const spd = p.speedMs != null ? `${Math.round(p.speedMs * 1.94)} kn` : '--';
+
+    const marker = L.marker([lat, lng], {
+      icon: createDivIcon(
+        'event-icon-wrap',
+        `<div class="event-icon" style="font-size:14px;transform:rotate(${p.heading ?? 0}deg)" aria-hidden="true">✈️</div>`,
+        20
+      ),
+    });
+
+    bindHover(marker, p.callsign || p.icao || 'Unknown', `${p.country || ''} · ${alt} · ${spd}`);
+    if (markerVisible('flights')) marker.addTo(map);
+    state.markers.flights.push(marker);
+  });
+}
+
+let auroraHeatLayer = null;
+
+async function loadAurora() {
+  const payload = await fetchJson('/api/v1/map/layers/aurora');
+  const points = payload.data ?? [];
+
+  const heatPoints = points.map(p => [p.lat, p.lon, p.prob / 100]);
+
+  if (auroraHeatLayer) {
+    auroraHeatLayer.setLatLngs(heatPoints);
+    return;
+  }
+
+  auroraHeatLayer = L.heatLayer(heatPoints, {
+    radius: 4,
+    blur: 3,
+    maxZoom: 5,
+    max: 1,
+    gradient: { 0.1: '#001133', 0.3: '#003366', 0.5: '#006644', 0.75: '#00cc66', 1.0: '#aaffcc' },
+  });
+
+  if (markerVisible('aurora')) {
+    auroraHeatLayer.addTo(map);
+    if (auroraHeatLayer._canvas) auroraHeatLayer._canvas.style.pointerEvents = 'none';
+  }
+}
+
+async function loadOutages() {
+  const payload = await fetchJson('/api/v1/map/layers/internet-outages');
+  const features = payload.data.features ?? [];
+
+  clearMarkers('outages');
+
+  const criticals = features.filter(f => f.properties.level === 'critical');
+  setText('outage-count', criticals.length || features.length);
+
+  setHtml('outage-list', features.length
+    ? features
+        .sort((a, b) => b.properties.time - a.properties.time)
+        .slice(0, 8)
+        .map(f => {
+          const p = f.properties;
+          const isCritical = p.level === 'critical';
+          return `<article class="alert-item">
+            <strong>${isCritical ? '🔴' : '🟡'} ${p.name}</strong>
+            <span>${p.level} · ${formatShortDate(new Date(p.time * 1000).toISOString())} UTC</span>
+          </article>`;
+        }).join('')
+    : '<p class="empty-state">No active outages</p>'
+  );
+
+  features.forEach((feature) => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const p = feature.properties;
+    const emoji = p.level === 'critical' ? '🔴' : '🟡';
+
+    const marker = L.marker([lat, lng], {
+      icon: createDivIcon('event-icon-wrap', `<div class="event-icon" aria-hidden="true">${emoji}</div>`, 24),
+    });
+
+    bindHover(marker, `${emoji} ${p.name}`, `Internet ${p.level} · ${p.source} · ${formatShortDate(new Date(p.time * 1000).toISOString())} UTC`);
+    if (markerVisible('outages')) marker.addTo(map);
+    state.markers.outages.push(marker);
+  });
+}
+
 let heatLayer = null;
 
 async function loadLightningPotential() {
@@ -892,6 +989,16 @@ document.querySelectorAll('[data-layer]').forEach((button) => {
       return;
     }
 
+    if (layer === 'aurora' && auroraHeatLayer) {
+      if (state.layers.aurora) {
+        auroraHeatLayer.addTo(map);
+        if (auroraHeatLayer._canvas) auroraHeatLayer._canvas.style.pointerEvents = 'none';
+      } else {
+        auroraHeatLayer.remove();
+      }
+      return;
+    }
+
     if (layer === 'lightning' && heatLayer) {
       if (state.layers.lightning) {
         heatLayer.addTo(map);
@@ -926,6 +1033,9 @@ async function init() {
     loadRadiation(),
     loadNuclearPlants(),
     loadWebcams(),
+    loadAurora(),
+    loadOutages(),
+    loadFlights(),
     loadSolar(),
     loadNoaaAlerts(),
     loadIss(),
@@ -940,6 +1050,9 @@ async function init() {
   schedule(300000, loadNaturalEvents);
   schedule(300000, loadVolcanoes);
   schedule(3600000, loadLightningPotential);
+  schedule(3600000, loadAurora);
+  schedule(900000, loadOutages);
+  schedule(60000, loadFlights, { skipWhenHidden: true });
   schedule(14400000, loadRadiation);
   schedule(86400000, loadNuclearPlants);
   schedule(3600000, loadWebcams);
