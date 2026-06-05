@@ -429,53 +429,67 @@ let nuclearPlantsCacheTs = 0;
 const NUCLEAR_PLANTS_TTL = 24 * 60 * 60 * 1000; // 24h
 
 const OVERPASS_QUERY = '[out:json][timeout:30];(node["power"="plant"]["plant:source"="nuclear"];way["power"="plant"]["plant:source"="nuclear"];relation["power"="plant"]["plant:source"="nuclear"];);out center 500;';
+const OVERPASS_SERVERS = [
+  'https://overpass-api.de/api/interpreter',
+  'https://overpass.kumi.systems/api/interpreter',
+  'https://overpass.private.coffee/api/interpreter',
+];
 
 async function fetchNuclearPlants() {
   if (nuclearPlantsCache && Date.now() - nuclearPlantsCacheTs < NUCLEAR_PLANTS_TTL) {
     return nuclearPlantsCache;
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 30000);
-  try {
-    const resp = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'earthwatch/1.0 (homelab monitoring; contact via github)',
-        'Accept': 'application/json',
-      },
-      body: 'data=' + encodeURIComponent(OVERPASS_QUERY),
-      signal: controller.signal,
-    });
-    if (!resp.ok) throw new Error(`Overpass HTTP ${resp.status}`);
-    const data = await resp.json();
+  let lastError;
+  for (const server of OVERPASS_SERVERS) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+    try {
+      const resp = await fetch(server, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'User-Agent': 'earthwatch/1.0 (homelab monitoring; contact via github)',
+          'Accept': 'application/json',
+        },
+        body: 'data=' + encodeURIComponent(OVERPASS_QUERY),
+        signal: controller.signal,
+      });
+      if (!resp.ok) throw new Error(`Overpass HTTP ${resp.status} from ${server}`);
+      const data = await resp.json();
 
-    const plants = (data.elements ?? [])
-      .map(el => {
-        const lat = el.lat ?? el.center?.lat;
-        const lon = el.lon ?? el.center?.lon;
-        if (!lat || !lon) return null;
-        const t = el.tags ?? {};
-        return {
-          id:       el.id,
-          lat,
-          lon,
-          name:     t['name:en'] || t['name'] || 'Unknown',
-          operator: t['operator'] || null,
-          capacity: t['plant:output:electricity'] || null,
-          started:  t['start_date'] ? t['start_date'].slice(0, 4) : null,
-          wikidata: t['wikidata'] || null,
-        };
-      })
-      .filter(Boolean);
+      const plants = (data.elements ?? [])
+        .map(el => {
+          const lat = el.lat ?? el.center?.lat;
+          const lon = el.lon ?? el.center?.lon;
+          if (!lat || !lon) return null;
+          const t = el.tags ?? {};
+          return {
+            id:       el.id,
+            lat,
+            lon,
+            name:     t['name:en'] || t['name'] || 'Unknown',
+            operator: t['operator'] || null,
+            capacity: t['plant:output:electricity'] || null,
+            started:  t['start_date'] ? t['start_date'].slice(0, 4) : null,
+            wikidata: t['wikidata'] || null,
+          };
+        })
+        .filter(Boolean);
 
-    nuclearPlantsCache = plants;
-    nuclearPlantsCacheTs = Date.now();
-    return plants;
-  } finally {
-    clearTimeout(timeout);
+      nuclearPlantsCache = plants;
+      nuclearPlantsCacheTs = Date.now();
+      return plants;
+    } catch (e) {
+      lastError = e;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
+
+  // All servers failed — return stale cache if available rather than throwing
+  if (nuclearPlantsCache) return nuclearPlantsCache;
+  throw lastError;
 }
 
 // ── Open-Meteo Lightning Potential Grid ──────────────────
