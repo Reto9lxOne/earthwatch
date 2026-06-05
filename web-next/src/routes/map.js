@@ -13,8 +13,8 @@ const WEBCAM_TTL = 60 * 60 * 1000; // 60 min
 
 async function fetchWindyWebcams() {
   if (!env.windyWebcamsKey) return [];
-  const limit = 500;
-  const pages = 4; // 2000 most-viewed cameras
+  const limit = 50;  // free tier max per request
+  const pages = 20;  // 1000 most-viewed cameras total
   const results = [];
 
   for (let page = 0; page < pages; page++) {
