@@ -9,7 +9,7 @@ groups:
 
       # ── Strong Earthquake Alert ──────────────────────────
       - uid: alert-earthquake-strong
-        title: "🔴 Strong Earthquake M5.0+"
+        title: "🔴 Strong Earthquake M5.5+"
         condition: C
         data:
           - refId: A
@@ -25,7 +25,7 @@ groups:
                   1         AS value
                 FROM earthquakes
                 WHERE time > NOW() - INTERVAL '1 hour'
-                  AND magnitude >= 5.0
+                  AND magnitude >= 5.5
                 ORDER BY magnitude DESC
                 LIMIT 1
               format: table
