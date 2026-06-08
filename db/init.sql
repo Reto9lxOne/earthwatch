@@ -139,8 +139,21 @@ SELECT create_hypertable('radiation_measurements', 'time', if_not_exists => TRUE
 CREATE INDEX IF NOT EXISTS idx_radiation_location ON radiation_measurements (lat, lon);
 CREATE INDEX IF NOT EXISTS idx_radiation_source   ON radiation_measurements (source, time DESC);
 
+-- ── Internet Outage Events (IODA) ──────────────────────
+CREATE TABLE IF NOT EXISTS outage_events (
+    time        TIMESTAMPTZ     NOT NULL,
+    entity_code TEXT            NOT NULL,  -- ISO country code
+    entity_name TEXT,
+    level       TEXT            NOT NULL,  -- critical / warning / normal
+    datasource  TEXT,
+    UNIQUE (time, entity_code, datasource)
+);
+SELECT create_hypertable('outage_events', 'time', if_not_exists => TRUE);
+CREATE INDEX IF NOT EXISTS idx_outages_level ON outage_events (level, time DESC);
+
 -- ── Retention Policies ──────────────────────────────────
 -- Keep raw data for 1 year, aggregates kept indefinitely
 SELECT add_retention_policy('air_quality',          INTERVAL '1 year',  if_not_exists => TRUE);
 SELECT add_retention_policy('collector_runs',        INTERVAL '30 days', if_not_exists => TRUE);
 SELECT add_retention_policy('radiation_measurements', INTERVAL '30 days', if_not_exists => TRUE);
+SELECT add_retention_policy('outage_events',          INTERVAL '90 days', if_not_exists => TRUE);

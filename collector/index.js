@@ -185,6 +185,38 @@ async function collectSolar() {
   }
 }
 
+// ── IODA Internet Outages ────────────────────────────────
+async function collectInternetOutages() {
+  const start = Date.now();
+  try {
+    const since = Math.floor((Date.now() - 30 * 60 * 1000) / 1000);
+    const until = Math.floor(Date.now() / 1000);
+    const data = await safeFetch(
+      `https://api.ioda.inetintel.cc.gatech.edu/v2/outages/alerts?from=${since}&until=${until}&limit=100&entityType=country`
+    );
+
+    let inserted = 0;
+    for (const alert of (data.data ?? [])) {
+      const code = alert.entity?.code?.toUpperCase();
+      if (!code || !alert.level) continue;
+
+      await db.query(
+        `INSERT INTO outage_events (time, entity_code, entity_name, level, datasource)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT (time, entity_code, datasource) DO NOTHING`,
+        [new Date(alert.time * 1000), code, alert.entity?.name || code, alert.level, alert.datasource || 'ioda']
+      );
+      inserted++;
+    }
+
+    await logRun('ioda_outages', inserted, Date.now() - start, true);
+    console.log(`✅ Internet outages: ${inserted} records`);
+  } catch (e) {
+    await logRun('ioda_outages', 0, Date.now() - start, false, e.message);
+    console.error('❌ Internet outages failed:', e.message);
+  }
+}
+
 // ── Safecast Radiation ───────────────────────────────────
 async function collectRadiation() {
   const start = Date.now();
@@ -250,11 +282,13 @@ async function start() {
   // Run immediately on start
   await runAll();
   await collectRadiation();
+  await collectInternetOutages();
 
   // Then on schedule
   cron.schedule(`*/${POLL_INTERVAL} * * * *`, runAll);
   cron.schedule('0 */4 * * *', collectRadiation);
-  console.log(`⏱  Scheduled every ${POLL_INTERVAL} minutes (radiation every 4h)`);
+  cron.schedule('*/15 * * * *', collectInternetOutages);
+  console.log(`⏱  Scheduled every ${POLL_INTERVAL} minutes (radiation 4h, outages 15min)`);
 }
 
 start().catch(e => {

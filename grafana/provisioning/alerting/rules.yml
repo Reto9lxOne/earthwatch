@@ -188,10 +188,52 @@ groups:
         execErrState: OK
         for: 0m
         annotations:
-          summary: "Geomagnetischer Sturm Kp5+ — GPS/Radio/Stromnetz betroffen"
+          summary: "Geomagnetischer Sturm Kp5+ — Aurora möglich, GPS/Radio/Stromnetz betroffen"
         labels:
           severity: warning
           category: solar
+        isPaused: false
+
+      # ── Internet Outage Alert ────────────────────────────
+      - uid: alert-internet-outage
+        title: "🌐 Internet Outage (Critical)"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: timescaledb
+            model:
+              rawSql: |
+                SELECT entity_name AS country, 1 AS value
+                FROM outage_events
+                WHERE time > NOW() - INTERVAL '15 minutes'
+                  AND level = 'critical'
+                ORDER BY time DESC
+                LIMIT 1
+              format: table
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 900
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              refId: C
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+        noDataState: OK
+        execErrState: OK
+        for: 0m
+        annotations:
+          summary: "Internet-Ausfall: {{ $labels.country }}"
+        labels:
+          severity: warning
+          category: internet
         isPaused: false
 
       # ── Collector Health Alert ───────────────────────────

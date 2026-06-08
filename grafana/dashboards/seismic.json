@@ -1,0 +1,137 @@
+{
+  "title": "Earthwatch — Seismic Activity",
+  "uid": "earthwatch-seismic",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "5m",
+  "time": { "from": "now-30d", "to": "now" },
+  "timezone": "browser",
+  "tags": ["earthwatch"],
+  "panels": [
+
+    {
+      "id": 1, "type": "stat", "title": "Total Earthquakes (30d)",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT COUNT(*) AS value FROM earthquakes WHERE time > now() - interval '30 days'",
+        "format": "table", "refId": "A"
+      }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] } } }
+    },
+
+    {
+      "id": 2, "type": "stat", "title": "M5+ Events (30d)",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT COUNT(*) AS value FROM earthquakes WHERE time > now() - interval '30 days' AND magnitude >= 5.0",
+        "format": "table", "refId": "A"
+      }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "yellow", "value": null }] } } }
+    },
+
+    {
+      "id": 3, "type": "stat", "title": "M7+ Events (30d)",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT COUNT(*) AS value FROM earthquakes WHERE time > now() - interval '30 days' AND magnitude >= 7.0",
+        "format": "table", "refId": "A"
+      }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } }
+    },
+
+    {
+      "id": 4, "type": "stat", "title": "Tsunami Events (30d)",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT COUNT(*) AS value FROM earthquakes WHERE time > now() - interval '30 days' AND tsunami = true",
+        "format": "table", "refId": "A"
+      }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] } } }
+    },
+
+    {
+      "id": 5, "type": "stat", "title": "Strongest (30d)",
+      "gridPos": { "h": 4, "w": 4, "x": 16, "y": 0 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT ROUND(MAX(magnitude)::numeric, 1) AS value FROM earthquakes WHERE time > now() - interval '30 days'",
+        "format": "table", "refId": "A"
+      }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "fieldConfig": { "defaults": { "unit": "none", "decimals": 1, "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 5 },
+          { "color": "orange", "value": 6 },
+          { "color": "red", "value": 7 }
+        ]}
+      }}
+    },
+
+    {
+      "id": 6, "type": "stat", "title": "Avg per Day (30d)",
+      "gridPos": { "h": 4, "w": 4, "x": 20, "y": 0 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT ROUND(COUNT(*)::numeric / 30, 1) AS value FROM earthquakes WHERE time > now() - interval '30 days'",
+        "format": "table", "refId": "A"
+      }],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value" },
+      "fieldConfig": { "defaults": { "decimals": 1, "unit": "none" } }
+    },
+
+    {
+      "id": 7, "type": "timeseries", "title": "Daily Earthquake Count",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT time_bucket('1 day', time) AS time, COUNT(*) AS \"All\", COUNT(*) FILTER (WHERE magnitude >= 5) AS \"M5+\", COUNT(*) FILTER (WHERE magnitude >= 6) AS \"M6+\" FROM earthquakes WHERE $__timeFilter(time) GROUP BY 1 ORDER BY 1",
+        "format": "time_series", "refId": "A"
+      }],
+      "options": { "tooltip": { "mode": "multi" } },
+      "fieldConfig": { "defaults": { "custom": { "lineWidth": 2, "fillOpacity": 10 } } }
+    },
+
+    {
+      "id": 8, "type": "timeseries", "title": "Daily Max Magnitude",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT time_bucket('1 day', time) AS time, ROUND(MAX(magnitude)::numeric, 2) AS \"Max Magnitude\" FROM earthquakes WHERE $__timeFilter(time) GROUP BY 1 ORDER BY 1",
+        "format": "time_series", "refId": "A"
+      }],
+      "options": { "tooltip": { "mode": "single" } },
+      "fieldConfig": { "defaults": {
+        "custom": { "lineWidth": 2, "fillOpacity": 15 },
+        "color": { "mode": "thresholds" },
+        "thresholds": { "mode": "absolute", "steps": [
+          { "color": "green", "value": null },
+          { "color": "yellow", "value": 5 },
+          { "color": "orange", "value": 6 },
+          { "color": "red", "value": 7 }
+        ]}
+      }}
+    },
+
+    {
+      "id": 9, "type": "table", "title": "M5+ Earthquakes",
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 20 },
+      "targets": [{
+        "datasource": { "type": "postgres", "uid": "timescaledb" },
+        "rawSql": "SELECT time AS \"Time\", ROUND(magnitude::numeric,1) AS \"M\", place AS \"Location\", ROUND(depth_km::numeric,0) AS \"Depth km\", CASE WHEN tsunami THEN '🌊' ELSE '' END AS \"Tsunami\", COALESCE(alert,'') AS \"Alert\" FROM earthquakes WHERE time > now() - interval '30 days' AND magnitude >= 5.0 ORDER BY time DESC LIMIT 50",
+        "format": "table", "refId": "A"
+      }],
+      "options": { "sortBy": [{ "displayName": "Time", "desc": true }] },
+      "fieldConfig": { "defaults": { "custom": { "displayMode": "auto" } } }
+    }
+
+  ]
+}
