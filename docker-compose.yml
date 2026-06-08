@@ -19,6 +19,8 @@ services:
       - web-next
     networks:
       - earthwatch
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
   # ─────────────────────────────────────
   # TIMESCALEDB — Time-Series Database
@@ -27,6 +29,8 @@ services:
     image: timescale/timescaledb:latest-pg16
     container_name: earthwatch-db
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     environment:
       POSTGRES_DB: earthwatch
       POSTGRES_USER: earthwatch
@@ -51,6 +55,8 @@ services:
     image: grafana/grafana:latest
     container_name: earthwatch-grafana
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     environment:
       GF_SERVER_DOMAIN: eaw-dash.9lx.app
       GF_SERVER_ROOT_URL: https://eaw-dash.9lx.app
@@ -162,16 +168,35 @@ services:
   # NODE EXPORTER — Host metrics
   # ─────────────────────────────────────
   node-exporter:
-    image: prom/node-exporter:v1.9.1
+    image: prom/node-exporter:latest
     container_name: earthwatch-node-exporter
     hostname: prd-eaw01
     restart: unless-stopped
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     command:
       - --path.rootfs=/host
     ports:
       - "9100:9100"
     volumes:
       - /:/host:ro,rslave
+    networks:
+      - earthwatch
+
+  # ─────────────────────────────────────
+  # WATCHTOWER — Automatic image updates
+  # ─────────────────────────────────────
+  watchtower:
+    image: containrrr/watchtower
+    container_name: earthwatch-watchtower
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_SCHEDULE: "0 0 3 * * *"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_NOTIFICATION_URL: "telegram://${TELEGRAM_BOT_TOKEN}@telegram?chats=${TELEGRAM_CHAT_ID}"
     networks:
       - earthwatch
 
