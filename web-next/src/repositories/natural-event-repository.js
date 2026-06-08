@@ -33,25 +33,3 @@ export async function listRecentNaturalEvents(db, options = {}) {
 
   return result.rows;
 }
-
-export async function listRecentVolcanoes(db, options = {}) {
-  const limit = normalizeLimit(options.limit);
-  const result = await db.query(
-    `SELECT
-       time,
-       event_id,
-       title,
-       category,
-       status,
-       lat,
-       lon
-     FROM natural_events
-     WHERE time >= NOW() - INTERVAL '365 days'
-       AND category = 'volcanoes'
-     ORDER BY time DESC
-     LIMIT $1`,
-    [limit]
-  );
-
-  return result.rows;
-}

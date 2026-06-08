@@ -2,7 +2,7 @@ import { fetchJsonWithCache } from '../lib/fetch-cache.js';
 import { env } from '../config/env.js';
 import { getDashboardSummary } from '../repositories/dashboard-repository.js';
 import { listRecentEarthquakes } from '../repositories/earthquake-repository.js';
-import { listRecentNaturalEvents, listRecentVolcanoes } from '../repositories/natural-event-repository.js';
+import { listRecentNaturalEvents } from '../repositories/natural-event-repository.js';
 import { listRecentSolarEvents } from '../repositories/solar-event-repository.js';
 import { listRecentRadiation } from '../repositories/radiation-repository.js';
 
