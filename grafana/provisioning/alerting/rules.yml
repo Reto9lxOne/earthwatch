@@ -53,6 +53,51 @@ groups:
           category: earthquake
         isPaused: false
 
+      # ── Significant Earthquake Alert ────────────────────
+      - uid: alert-earthquake-significant
+        title: "🟠 Significant Earthquake M6.0+"
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: timescaledb
+            model:
+              rawSql: |
+                SELECT
+                  place     AS location,
+                  ROUND(magnitude::numeric, 1)::text AS magnitude,
+                  1         AS value
+                FROM earthquakes
+                WHERE time > NOW() - INTERVAL '1 hour'
+                  AND magnitude >= 6.0
+                ORDER BY magnitude DESC
+                LIMIT 1
+              format: table
+              refId: A
+          - refId: C
+            relativeTimeRange:
+              from: 3600
+              to: 0
+            datasourceUid: "__expr__"
+            model:
+              type: reduce
+              refId: C
+              expression: A
+              reducer: last
+              settings:
+                mode: dropNN
+        noDataState: OK
+        execErrState: OK
+        for: 0m
+        annotations:
+          summary: "Erdbeben M{{ $labels.magnitude }} — {{ $labels.location }}"
+        labels:
+          severity: warning
+          category: earthquake
+        isPaused: false
+
       # ── Major Earthquake Alert ───────────────────────────
       - uid: alert-earthquake-major
         title: "🚨 Major Earthquake M7.0+"
