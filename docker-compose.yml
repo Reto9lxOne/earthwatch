@@ -164,24 +164,8 @@ services:
     networks:
       - earthwatch
 
-  # ─────────────────────────────────────
-  # NODE EXPORTER — Host metrics
-  # ─────────────────────────────────────
-  node-exporter:
-    image: prom/node-exporter:latest
-    container_name: earthwatch-node-exporter
-    hostname: prd-eaw01
-    restart: unless-stopped
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-    command:
-      - --path.rootfs=/host
-    ports:
-      - "9100:9100"
-    volumes:
-      - /:/host:ro,rslave
-    networks:
-      - earthwatch
+  # node-exporter runs as a systemd service on this host (port 9100)
+  # — no Docker container needed
 
   # ─────────────────────────────────────
   # WATCHTOWER — Automatic image updates
