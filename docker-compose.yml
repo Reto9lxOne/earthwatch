@@ -181,6 +181,7 @@ services:
       WATCHTOWER_SCHEDULE: "0 0 3 * * *"
       WATCHTOWER_CLEANUP: "true"
       WATCHTOWER_NOTIFICATION_URL: "telegram://${WATCHTOWER_BOT_TOKEN}@telegram?chats=${TELEGRAM_CHAT_ID}"
+      WATCHTOWER_NOTIFICATIONS_LEVEL: "warning"
       DOCKER_API_VERSION: "1.41"
     networks:
       - earthwatch
