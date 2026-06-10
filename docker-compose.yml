@@ -136,6 +136,8 @@ services:
       WINDY_WEBCAMS_KEY: ${WINDY_WEBCAMS_KEY}
       WAQI_TOKEN: ${WAQI_TOKEN}
       CESIUM_ION_TOKEN: ${VITE_CESIUM_ION_TOKEN}
+      OPENSKY_USER: ${OPENSKY_USER:-}
+      OPENSKY_PASS: ${OPENSKY_PASS:-}
     depends_on:
       timescaledb:
         condition: service_healthy

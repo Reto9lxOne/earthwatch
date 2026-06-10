@@ -846,6 +846,7 @@ export async function mapRoutes(fastify) {
 // ── Flight route info (departure / arrival via OpenSky) ──────────────────────
 const _flightInfoCache = new Map(); // icao24 → { data, ts }
 const FLIGHT_INFO_TTL  = 60 * 60 * 1000; // 1 h
+const FLIGHT_ERROR_TTL = 5 * 60 * 1000;  // 5 min for errors/429
 
   fastify.get('/api/v1/flights/info', async (request) => {
     const icao = ((request.query.icao) || '').toLowerCase().trim();
@@ -858,12 +859,16 @@ const FLIGHT_INFO_TTL  = 60 * 60 * 1000; // 1 h
     const begin = end - 86400; // last 24 h
     const ctrl  = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 7000);
+    const osHeaders = {};
+    if (env.openskyUser && env.openskyPass) {
+      osHeaders['Authorization'] = `Basic ${Buffer.from(`${env.openskyUser}:${env.openskyPass}`).toString('base64')}`;
+    }
     try {
       const resp = await fetch(
         `https://opensky-network.org/api/flights/aircraft?icao24=${icao}&begin=${begin}&end=${end}`,
-        { signal: ctrl.signal }
+        { signal: ctrl.signal, headers: osHeaders }
       );
-      if (!resp.ok) { _flightInfoCache.set(icao, { data: null, ts: Date.now() }); return { data: null }; }
+      if (!resp.ok) { _flightInfoCache.set(icao, { data: null, ts: Date.now() - FLIGHT_INFO_TTL + FLIGHT_ERROR_TTL }); return { data: null }; }
       const list = await resp.json();
       const latest = Array.isArray(list) && list.length ? list[list.length - 1] : null;
       const data = latest
@@ -872,7 +877,7 @@ const FLIGHT_INFO_TTL  = 60 * 60 * 1000; // 1 h
       _flightInfoCache.set(icao, { data, ts: Date.now() });
       return { data };
     } catch {
-      _flightInfoCache.set(icao, { data: null, ts: Date.now() });
+      _flightInfoCache.set(icao, { data: null, ts: Date.now() - FLIGHT_INFO_TTL + FLIGHT_ERROR_TTL });
       return { data: null };
     } finally {
       clearTimeout(timer);

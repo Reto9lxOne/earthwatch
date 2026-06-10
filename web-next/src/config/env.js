@@ -41,4 +41,6 @@ export const env = Object.freeze({
   windyWebcamsKey: readString('WINDY_WEBCAMS_KEY', ''),
   waqiToken: readString('WAQI_TOKEN', ''),
   cesiumIonToken: readString('CESIUM_ION_TOKEN', ''),
+  openskyUser: readString('OPENSKY_USER', ''),
+  openskyPass: readString('OPENSKY_PASS', ''),
 });

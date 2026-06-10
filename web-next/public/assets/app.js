@@ -700,6 +700,7 @@ async function loadFlights() {
     if (markerVisible('flights')) marker.addTo(map);
     state.markers.flights.push(marker);
   });
+  if (globeState.active && globeState.initialized) renderFlightsOnGlobe();
 }
 
 let auroraHeatLayer = null;
