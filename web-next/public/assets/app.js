@@ -152,15 +152,19 @@ const map = L.map('map', {
 
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; OpenStreetMap &copy; CARTO',
-  subdomains: 'abcd',
-  minZoom: 1,
-  maxZoom: 7,
-  keepBuffer: 4,
-  updateWhenZooming: false,
-  updateWhenIdle: true,
-}).addTo(map);
+const BASEMAPS = {
+  dark: {
+    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    opts: { attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', minZoom: 1, maxZoom: 7, keepBuffer: 4, updateWhenZooming: false, updateWhenIdle: true },
+  },
+  satellite: {
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    opts: { attribution: '&copy; Esri, Maxar, Earthstar Geographics', minZoom: 1, maxZoom: 7, keepBuffer: 4, updateWhenZooming: false, updateWhenIdle: true },
+  },
+};
+
+let baseTileLayer = L.tileLayer(BASEMAPS.dark.url, BASEMAPS.dark.opts).addTo(map);
+let labelTileLayer = null; // labels overlay on satellite
 
 // Custom pane below overlay pane so terminator sits under markers
 map.createPane('terminatorPane');
@@ -1698,4 +1702,31 @@ function disableDayNight() {
 document.getElementById('day-night-btn').addEventListener('click', () => {
   const active = document.getElementById('day-night-btn').classList.toggle('is-active');
   if (active) enableDayNight(); else disableDayNight();
+});
+
+// ── Basemap switcher ──────────────────────────────────────────────────────────
+let _currentBasemap = 'dark';
+
+function setBasemap(type) {
+  if (type === _currentBasemap) return;
+  baseTileLayer.remove();
+  if (labelTileLayer) { labelTileLayer.remove(); labelTileLayer = null; }
+
+  const bm = BASEMAPS[type];
+  baseTileLayer = L.tileLayer(bm.url, bm.opts).addTo(map);
+  baseTileLayer.bringToBack();
+
+  if (type === 'satellite') {
+    // Semi-transparent label overlay so place names stay visible
+    labelTileLayer = L.tileLayer(
+      'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png',
+      { subdomains: 'abcd', opacity: 0.75, minZoom: 1, maxZoom: 7, pane: 'shadowPane' }
+    ).addTo(map);
+  }
+  _currentBasemap = type;
+}
+
+document.getElementById('basemap-btn').addEventListener('click', () => {
+  const active = document.getElementById('basemap-btn').classList.toggle('is-active');
+  setBasemap(active ? 'satellite' : 'dark');
 });
