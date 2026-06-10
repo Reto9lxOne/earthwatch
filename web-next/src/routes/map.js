@@ -164,7 +164,8 @@ async function fetchFlights() {
         lat:      s[6],
         altM:     s[7] != null ? Math.round(s[7]) : null,
         speedMs:  s[9] != null ? Math.round(s[9]) : null,
-        heading:  s[10] != null ? Math.round(s[10]) : null,
+        heading:      s[10] != null ? Math.round(s[10]) : null,
+        verticalRate: s[11] != null ? Math.round(s[11] * 196.85) : null, // ft/min
       }));
 
     flightCache = flights;
@@ -721,7 +722,7 @@ export async function mapRoutes(fastify) {
       data: { type: 'FeatureCollection', features: flights.map(f => ({
         type: 'Feature',
         geometry: { type: 'Point', coordinates: [f.lon, f.lat] },
-        properties: { icao: f.icao, callsign: f.callsign, country: f.country, altM: f.altM, speedMs: f.speedMs, heading: f.heading },
+        properties: { icao: f.icao, callsign: f.callsign, country: f.country, altM: f.altM, speedMs: f.speedMs, heading: f.heading, verticalRate: f.verticalRate },
       }))},
       meta: { layer: 'flights', count: flights.length, generatedAt: new Date().toISOString() },
     };
@@ -842,4 +843,40 @@ export async function mapRoutes(fastify) {
       },
     };
   });
+// ── Flight route info (departure / arrival via OpenSky) ──────────────────────
+const _flightInfoCache = new Map(); // icao24 → { data, ts }
+const FLIGHT_INFO_TTL  = 60 * 60 * 1000; // 1 h
+
+  fastify.get('/api/v1/flights/info', async (request) => {
+    const icao = ((request.query.icao) || '').toLowerCase().trim();
+    if (!icao || !/^[0-9a-f]{6}$/.test(icao)) return { data: null };
+
+    const hit = _flightInfoCache.get(icao);
+    if (hit && Date.now() - hit.ts < FLIGHT_INFO_TTL) return { data: hit.data };
+
+    const end   = Math.floor(Date.now() / 1000);
+    const begin = end - 86400; // last 24 h
+    const ctrl  = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 7000);
+    try {
+      const resp = await fetch(
+        `https://opensky-network.org/api/flights/aircraft?icao24=${icao}&begin=${begin}&end=${end}`,
+        { signal: ctrl.signal }
+      );
+      if (!resp.ok) { _flightInfoCache.set(icao, { data: null, ts: Date.now() }); return { data: null }; }
+      const list = await resp.json();
+      const latest = Array.isArray(list) && list.length ? list[list.length - 1] : null;
+      const data = latest
+        ? { dep: latest.estDepartureAirport || null, arr: latest.estArrivalAirport || null }
+        : null;
+      _flightInfoCache.set(icao, { data, ts: Date.now() });
+      return { data };
+    } catch {
+      _flightInfoCache.set(icao, { data: null, ts: Date.now() });
+      return { data: null };
+    } finally {
+      clearTimeout(timer);
+    }
+  });
+
 }

@@ -493,3 +493,10 @@ h1 {
   font-size: 13px;
   color: var(--accent);
 }
+
+.tooltip-route {
+  opacity: 0.75;
+  font-size: 11px;
+  font-family: var(--mono);
+  letter-spacing: 0.03em;
+}

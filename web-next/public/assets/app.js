@@ -681,7 +681,22 @@ async function loadFlights() {
       ),
     });
 
-    bindHover(marker, p.callsign || p.icao || 'Unknown', `${p.country || ''} · ${alt} · ${spd}`);
+    const vr = p.verticalRate != null
+      ? (p.verticalRate > 100 ? ` · ↑${p.verticalRate} ft/min` : p.verticalRate < -100 ? ` · ↓${Math.abs(p.verticalRate)} ft/min` : ' · Level')
+      : '';
+    bindHover(marker, p.callsign || p.icao || 'Unknown', `${p.country || ''} · ${alt} · ${spd}${vr}`.replace(/^·\s*/, ''));
+    // Async route enrichment on hover
+    if (p.icao) {
+      marker.on('mouseover', async () => {
+        const route = await fetchFlightRoute(p.icao);
+        if (!route || !popup.isOpen()) return;
+        const routeStr = [route.dep, route.arr].filter(Boolean).join(' → ');
+        if (routeStr && !popup.getContent().includes(routeStr)) {
+          popup.setContent(popup.getContent() + `<br><span style="opacity:.7;font-size:11px">${routeStr}</span>`);
+          popup.update();
+        }
+      });
+    }
     if (markerVisible('flights')) marker.addTo(map);
     state.markers.flights.push(marker);
   });
@@ -1171,6 +1186,22 @@ init().catch((error) => {
   hideLoader();
 });
 
+// ── Flight route cache (lazy enrichment) ──────────────────────────────────
+const _flightRouteCache = new Map(); // icao → { route, ts }
+
+async function fetchFlightRoute(icao) {
+  const hit = _flightRouteCache.get(icao);
+  if (hit && Date.now() - hit.ts < 3600000) return hit.route;
+  try {
+    const d = await fetchJson(`/api/v1/flights/info?icao=${icao}`);
+    _flightRouteCache.set(icao, { route: d.data, ts: Date.now() });
+    return d.data;
+  } catch {
+    _flightRouteCache.set(icao, { route: null, ts: Date.now() });
+    return null;
+  }
+}
+
 // ── Globe View ──────────────────────────────────────────────────────────────
 
 const globeState = {
@@ -1237,23 +1268,36 @@ function hideGlobeTooltip(tooltip) {
 }
 
 function attachGlobeHover(viewer, tooltip) {
+  let _hoveredEntity = null;
   const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
-  handler.setInputAction((movement) => {
+  handler.setInputAction(async (movement) => {
     const picked = viewer.scene.pick(movement.endPosition);
     if (
       Cesium.defined(picked) &&
       Cesium.defined(picked.id) &&
       picked.id._ewTitle
     ) {
+      const entity = picked.id;
+      _hoveredEntity = entity;
       showGlobeTooltip(
         tooltip,
-        picked.id._ewTitle,
-        picked.id._ewMeta,
+        entity._ewTitle,
+        entity._ewMeta,
         movement.endPosition.x,
         movement.endPosition.y,
         viewer.scene.canvas
       );
+      // Async route enrichment for flights
+      if (entity._ewIcao) {
+        const route = await fetchFlightRoute(entity._ewIcao);
+        if (_hoveredEntity !== entity || !route) return;
+        const routeStr = [route.dep, route.arr].filter(Boolean).join(' → ');
+        if (routeStr) {
+          tooltip.innerHTML = `<strong>${entity._ewTitle}</strong><br>${entity._ewMeta}<br><span class="tooltip-route">${routeStr}</span>`;
+        }
+      }
     } else {
+      _hoveredEntity = null;
       hideGlobeTooltip(tooltip);
     }
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
@@ -1368,6 +1412,9 @@ function renderFlightsOnGlobe() {
     const alt    = Math.max(500, p.altM ?? 10000);
     const altFt  = p.altM != null ? `${Math.round(p.altM / 0.3048 / 100) * 100} ft` : '--';
     const spd    = p.speedMs != null ? `${Math.round(p.speedMs * 1.94)} kn` : '--';
+    const vr2    = p.verticalRate != null
+      ? (p.verticalRate > 100 ? ` · ↑${p.verticalRate} ft/min` : p.verticalRate < -100 ? ` · ↓${Math.abs(p.verticalRate)} ft/min` : ' · Level')
+      : '';
     const entity = globeState.viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(lng, lat, alt),
       show: visible,
@@ -1379,7 +1426,8 @@ function renderFlightsOnGlobe() {
       },
     });
     entity._ewTitle = p.callsign || p.icao || 'Unknown';
-    entity._ewMeta  = `${p.country || ''} · ${altFt} · ${spd}`.replace(/^·\s*/, '');
+    entity._ewMeta  = `${p.country || ''} · ${altFt} · ${spd}${vr2}`.replace(/^·\s*/, '');
+    entity._ewIcao  = p.icao || null;
     globeState.entities.flights.push(entity);
   });
 }
