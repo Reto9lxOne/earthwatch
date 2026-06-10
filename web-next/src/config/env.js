@@ -43,4 +43,5 @@ export const env = Object.freeze({
   cesiumIonToken: readString('CESIUM_ION_TOKEN', ''),
   openskyUser: readString('OPENSKY_USER', ''),
   openskyPass: readString('OPENSKY_PASS', ''),
+  stadiaApiKey: readString('STADIA_API_KEY', ''),
 });

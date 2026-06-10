@@ -152,18 +152,24 @@ const map = L.map('map', {
 
 L.control.zoom({ position: 'bottomright' }).addTo(map);
 
+let appConfig = {}; // populated in init() from /api/config
+
 const BASEMAPS = {
   dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    url: () => 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
     opts: { attribution: '&copy; OpenStreetMap &copy; CARTO', subdomains: 'abcd', minZoom: 1, maxZoom: 7, keepBuffer: 4, updateWhenZooming: false, updateWhenIdle: true },
   },
+  stadia: {
+    url: () => `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png?api_key=${appConfig.stadiaApiKey}`,
+    opts: { attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a> &copy; OpenMapTiles &copy; OpenStreetMap', minZoom: 1, maxZoom: 7, keepBuffer: 4, updateWhenZooming: false, updateWhenIdle: true },
+  },
   satellite: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    url: () => 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     opts: { attribution: '&copy; Esri, Maxar, Earthstar Geographics', minZoom: 1, maxZoom: 7, keepBuffer: 4, updateWhenZooming: false, updateWhenIdle: true },
   },
 };
 
-let baseTileLayer = L.tileLayer(BASEMAPS.dark.url, BASEMAPS.dark.opts).addTo(map);
+let baseTileLayer = L.tileLayer(BASEMAPS.dark.url(), BASEMAPS.dark.opts).addTo(map);
 let labelTileLayer = null; // labels overlay on satellite
 
 // Custom pane below overlay pane so terminator sits under markers
@@ -1145,6 +1151,10 @@ async function init() {
   window.setInterval(updateClock, 1000);
   window.setInterval(updateMoonPhase, 3600000);
 
+  // Fetch config early so Stadia key is available before layers load
+  appConfig = await fetchJson('/api/config').catch(() => ({}));
+  if (appConfig.stadiaApiKey) setBasemap('stadia');
+
   await Promise.allSettled([
     loadSummary(),
     loadEarthquakes(),
@@ -1326,8 +1336,7 @@ async function initGlobe() {
   if (globeLoading) globeLoading.classList.remove('is-hidden');
 
   try {
-    const config = await fetchJson('/api/config');
-    Cesium.Ion.defaultAccessToken = config.cesiumIonToken;
+    Cesium.Ion.defaultAccessToken = appConfig.cesiumIonToken || '';
 
     const creditEl = document.createElement('div');
 
@@ -1713,7 +1722,7 @@ function setBasemap(type) {
   if (labelTileLayer) { labelTileLayer.remove(); labelTileLayer = null; }
 
   const bm = BASEMAPS[type];
-  baseTileLayer = L.tileLayer(bm.url, bm.opts).addTo(map);
+  baseTileLayer = L.tileLayer(bm.url(), bm.opts).addTo(map);
   baseTileLayer.bringToBack();
 
   if (type === 'satellite') {
@@ -1728,5 +1737,5 @@ function setBasemap(type) {
 
 document.getElementById('basemap-btn').addEventListener('click', () => {
   const active = document.getElementById('basemap-btn').classList.toggle('is-active');
-  setBasemap(active ? 'satellite' : 'dark');
+  setBasemap(active ? 'satellite' : (appConfig.stadiaApiKey ? 'stadia' : 'dark'));
 });

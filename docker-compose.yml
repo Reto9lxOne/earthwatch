@@ -138,6 +138,7 @@ services:
       CESIUM_ION_TOKEN: ${VITE_CESIUM_ION_TOKEN}
       OPENSKY_USER: ${OPENSKY_USER:-}
       OPENSKY_PASS: ${OPENSKY_PASS:-}
+      STADIA_API_KEY: ${STADIA_API_KEY:-}
     depends_on:
       timescaledb:
         condition: service_healthy
