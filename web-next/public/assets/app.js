@@ -1328,6 +1328,28 @@ function attachGlobeHover(viewer, tooltip) {
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 }
 
+function applyBasemapToGlobe(type) {
+  if (!globeState.viewer) return;
+  const layers = globeState.viewer.imageryLayers;
+  layers.removeAll();
+  if (type === 'satellite') {
+    layers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      credit: '\u00a9 Esri, Maxar, Earthstar Geographics',
+    }));
+  } else {
+    const url = appConfig.stadiaApiKey
+      ? `https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}.png?api_key=${appConfig.stadiaApiKey}`
+      : 'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png';
+    layers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
+      url,
+      credit: appConfig.stadiaApiKey
+        ? '\u00a9 Stadia Maps \u00a9 OpenMapTiles \u00a9 OpenStreetMap'
+        : '\u00a9 OpenStreetMap \u00a9 CARTO',
+    }));
+  }
+}
+
 async function initGlobe() {
   if (globeState.initializing || globeState.initialized) return;
   globeState.initializing = true;
@@ -1361,6 +1383,10 @@ async function initGlobe() {
     viewer.scene.globe.atmosphereSaturationShift = -0.3;
     viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#071822');
 
+    // Replace default Ion imagery with current 2D basemap
+    globeState.viewer = viewer;
+    applyBasemapToGlobe(_currentBasemap);
+
     viewer.camera.setView({
       destination: Cesium.Cartesian3.fromDegrees(8, 20, 14000000),
     });
@@ -1369,7 +1395,6 @@ async function initGlobe() {
     globeState.tooltip = tooltip;
     attachGlobeHover(viewer, tooltip);
 
-    globeState.viewer = viewer;
     globeState.initialized = true;
   } catch (err) {
     reportError('globe:init', err);
@@ -1733,6 +1758,7 @@ function setBasemap(type) {
     ).addTo(map);
   }
   _currentBasemap = type;
+  applyBasemapToGlobe(type);
 }
 
 document.getElementById('basemap-btn').addEventListener('click', () => {
