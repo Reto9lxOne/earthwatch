@@ -1349,7 +1349,7 @@ function renderEarthquakesOnGlobe() {
         outlineColor: Cesium.Color.BLACK.withAlpha(0.55),
         outlineWidth: 1,
         heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        disableDepthTestDistance: 1.5e7,
       },
     });
     entity._ewTitle = `M${mag.toFixed(1)} – ${feature.properties.place ?? 'Unknown'}`;
@@ -1375,7 +1375,7 @@ function renderFlightsOnGlobe() {
         image: emojiImage('✈️', 32),
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
         heightReference: Cesium.HeightReference.NONE,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        disableDepthTestDistance: 1.5e7,
       },
     });
     entity._ewTitle = p.callsign || p.icao || 'Unknown';
@@ -1401,7 +1401,7 @@ function upsertShipOnGlobe(ship) {
         image: emojiImage('🚢', 28),
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
         heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        disableDepthTestDistance: 1.5e7,
       },
     });
     entity._ewTitle = ship.name || String(ship.mmsi) || 'Ship';
@@ -1443,7 +1443,7 @@ function renderSatGroupOnGlobe(group) {
               image: emojiImage('🛰️', 32),
               verticalOrigin: Cesium.VerticalOrigin.CENTER,
               heightReference: Cesium.HeightReference.NONE,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              disableDepthTestDistance: 1.5e7,
             },
           }
         : {
@@ -1453,7 +1453,7 @@ function renderSatGroupOnGlobe(group) {
               outlineColor: Cesium.Color.BLACK.withAlpha(0.3),
               outlineWidth: 1,
               heightReference: Cesium.HeightReference.NONE,
-              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+              disableDepthTestDistance: 1.5e7,
             },
           }),
     });
