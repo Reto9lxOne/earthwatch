@@ -1116,6 +1116,11 @@ document.querySelectorAll('[data-layer]').forEach((button) => {
     }
 
     const markerSet = state.markers[layer] ?? [];
+    if (state.layers[layer] && markerSet.length === 0) {
+      // Layer was empty (init may have failed) – reload now
+      const reload = { airquality: loadAirQuality, webcams: loadWebcams, nuclear: loadNuclearPlants }[layer];
+      if (reload) reload().catch(e => reportError(`reload:${layer}`, e));
+    }
     markerSet.forEach((marker) => {
       if (state.layers[layer]) {
         marker.addTo(map);
@@ -1132,7 +1137,7 @@ async function init() {
   window.setInterval(updateClock, 1000);
   window.setInterval(updateMoonPhase, 3600000);
 
-  await Promise.all([
+  await Promise.allSettled([
     loadSummary(),
     loadEarthquakes(),
     loadNaturalEvents(),
