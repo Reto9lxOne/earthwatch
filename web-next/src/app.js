@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 
 import { env } from './config/env.js';
 import { dbPlugin } from './plugins/db.js';
+import { configRoutes } from './routes/config.js';
 import { dashboardRoutes } from './routes/dashboard.js';
 import { healthRoutes } from './routes/health.js';
 import { mapRoutes } from './routes/map.js';
@@ -43,6 +44,7 @@ export function buildApp() {
   });
 
   app.register(dbPlugin);
+  app.register(configRoutes);
   app.register(dashboardRoutes);
   app.register(healthRoutes);
   app.register(mapRoutes);

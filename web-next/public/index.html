@@ -20,7 +20,8 @@
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   >
-  <link rel="stylesheet" href="/assets/app.css?v=20260605b">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.122.0/Build/Cesium/Widgets/widgets.css">
+  <link rel="stylesheet" href="/assets/app.css?v=20260610b">
 </head>
 <body>
   <div class="page-shell">
@@ -60,7 +61,7 @@
             </div>
             <div>
               <span class="metric-label">Map mode</span>
-              <strong class="metric-value metric-value-compact">Wrapped</strong>
+              <strong class="metric-value metric-value-compact" id="map-mode-label">Wrapped</strong>
             </div>
           </div>
           <div class="chip-row" id="collector-list"></div>
@@ -145,9 +146,15 @@
               <button class="layer-chip sat-chip" data-satellite="starlink">Starlink</button>
               <button class="layer-chip sat-chip" data-satellite="weather">Weather Sats</button>
             </div>
+            <div class="view-switcher">
+              <button class="view-btn is-active" id="view-map-btn">Map</button>
+              <button class="view-btn" id="view-globe-btn">Globe</button>
+            </div>
           </div>
           <div id="map"></div>
+          <div id="cesium-container"></div>
           <div class="map-overlay" id="map-loading">Loading live layers...</div>
+          <div class="map-overlay is-hidden" id="globe-loading">Initializing 3D Globe...</div>
         </div>
         <div class="ticker-grid">
           <article class="ticker-card">
@@ -250,6 +257,8 @@
   ></script>
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js"></script>
-  <script src="/assets/app.js?v=20260605m" type="module"></script>
+  <script>window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@1.122.0/Build/Cesium/';</script>
+  <script src="https://cdn.jsdelivr.net/npm/cesium@1.122.0/Build/Cesium/Cesium.js"></script>
+  <script src="/assets/app.js?v=20260610b" type="module"></script>
 </body>
 </html>

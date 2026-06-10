@@ -40,4 +40,5 @@ export const env = Object.freeze({
   publicBaseUrl: readString('PUBLIC_BASE_URL', ''),
   windyWebcamsKey: readString('WINDY_WEBCAMS_KEY', ''),
   waqiToken: readString('WAQI_TOKEN', ''),
+  cesiumIonToken: readString('CESIUM_ION_TOKEN', ''),
 });

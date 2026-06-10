@@ -33,6 +33,10 @@ const state = {
   ships: new Map(),
   feed: [],
   shipSocket: null,
+  rawData: {
+    earthquakes: [],
+    flights: [],
+  },
 };
 
 // ── Satellite Layers ──────────────────────────────────────
@@ -400,6 +404,7 @@ async function loadEarthquakes() {
   const features = payload.data.features ?? [];
 
   clearMarkers('earthquakes');
+  state.rawData.earthquakes = features;
 
   features.forEach((feature) => {
     const [lng, lat] = feature.geometry.coordinates;
@@ -660,6 +665,7 @@ async function loadFlights() {
   const features = payload.data.features ?? [];
 
   clearMarkers('flights');
+  state.rawData.flights = features;
 
   features.forEach((feature) => {
     const [lng, lat] = feature.geometry.coordinates;
@@ -984,6 +990,10 @@ function upsertShip(ship) {
   }
 
   pruneShips();
+
+  if (globeState.active && globeState.initialized) {
+    upsertShipOnGlobe(ship);
+  }
 }
 
 async function loadShipSnapshot() {
@@ -1160,3 +1170,264 @@ init().catch((error) => {
   setShipStreamStatus('Unavailable');
   hideLoader();
 });
+
+// ── Globe View ──────────────────────────────────────────────────────────────
+
+const globeState = {
+  viewer: null,
+  tooltip: null,
+  initialized: false,
+  initializing: false,
+  active: false,
+  entities: {
+    earthquakes: [],
+    flights: [],
+    ships: new Map(),
+  },
+};
+
+function eqColorCesium(mag) {
+  if (mag >= 7) return Cesium.Color.fromCssColorString('#ff6b6b');
+  if (mag >= 6) return Cesium.Color.fromCssColorString('#ff8f5c');
+  if (mag >= 5) return Cesium.Color.fromCssColorString('#ffd166');
+  return Cesium.Color.fromCssColorString('#7ef7b8');
+}
+
+function createGlobeTooltip() {
+  const el = document.createElement('div');
+  el.className = 'globe-tooltip';
+  el.style.display = 'none';
+  document.body.appendChild(el);
+  return el;
+}
+
+function showGlobeTooltip(tooltip, title, meta, canvasX, canvasY, canvas) {
+  const rect = canvas.getBoundingClientRect();
+  tooltip.innerHTML = `<strong>${title}</strong><br>${meta}`;
+  tooltip.style.display = 'block';
+  tooltip.style.left = `${rect.left + canvasX + 16}px`;
+  tooltip.style.top  = `${rect.top  + canvasY - 36}px`;
+}
+
+function hideGlobeTooltip(tooltip) {
+  tooltip.style.display = 'none';
+}
+
+function attachGlobeHover(viewer, tooltip) {
+  const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+  handler.setInputAction((movement) => {
+    const picked = viewer.scene.pick(movement.endPosition);
+    if (
+      Cesium.defined(picked) &&
+      Cesium.defined(picked.id) &&
+      picked.id._ewTitle
+    ) {
+      showGlobeTooltip(
+        tooltip,
+        picked.id._ewTitle,
+        picked.id._ewMeta,
+        movement.endPosition.x,
+        movement.endPosition.y,
+        viewer.scene.canvas
+      );
+    } else {
+      hideGlobeTooltip(tooltip);
+    }
+  }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+}
+
+async function initGlobe() {
+  if (globeState.initializing || globeState.initialized) return;
+  globeState.initializing = true;
+
+  const globeLoading = document.getElementById('globe-loading');
+  if (globeLoading) globeLoading.classList.remove('is-hidden');
+
+  try {
+    const config = await fetchJson('/api/config');
+    Cesium.Ion.defaultAccessToken = config.cesiumIonToken;
+
+    const creditEl = document.createElement('div');
+
+    const viewer = new Cesium.Viewer('cesium-container', {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+      baseLayerPicker: false,
+      geocoder: false,
+      homeButton: false,
+      sceneModePicker: false,
+      navigationHelpButton: false,
+      animation: false,
+      timeline: false,
+      fullscreenButton: false,
+      infoBox: false,
+      selectionIndicator: false,
+      creditContainer: creditEl,
+    });
+
+    viewer.scene.backgroundColor = Cesium.Color.fromCssColorString('#07131d');
+    viewer.scene.globe.enableLighting = false;
+    viewer.scene.globe.atmosphereHueShift = -0.05;
+    viewer.scene.globe.atmosphereSaturationShift = -0.3;
+    viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#071822');
+
+    viewer.camera.setView({
+      destination: Cesium.Cartesian3.fromDegrees(8, 20, 18000000),
+    });
+
+    const tooltip = createGlobeTooltip();
+    globeState.tooltip = tooltip;
+    attachGlobeHover(viewer, tooltip);
+
+    globeState.viewer = viewer;
+    globeState.initialized = true;
+  } catch (err) {
+    reportError('globe:init', err);
+  } finally {
+    globeState.initializing = false;
+    if (globeLoading) globeLoading.classList.add('is-hidden');
+  }
+}
+
+function clearGlobeLayer(key) {
+  if (!globeState.viewer) return;
+  const list = globeState.entities[key];
+  if (Array.isArray(list)) {
+    list.forEach(e => globeState.viewer.entities.remove(e));
+    globeState.entities[key] = [];
+  }
+}
+
+function renderEarthquakesOnGlobe() {
+  if (!globeState.viewer) return;
+  clearGlobeLayer('earthquakes');
+  const visible = state.layers.earthquakes !== false;
+  (state.rawData.earthquakes ?? []).forEach(feature => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const mag = feature.properties.magnitude ?? 0;
+    const color = eqColorCesium(mag);
+    const radius = Math.max(50000, mag * 95000);
+    const entity = globeState.viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lng, lat),
+      show: visible,
+      ellipse: {
+        semiMinorAxis: radius,
+        semiMajorAxis: radius,
+        material: color.withAlpha(0.2),
+        outline: true,
+        outlineColor: color.withAlpha(0.85),
+        outlineWidth: 1.5,
+        height: 0,
+      },
+    });
+    entity._ewTitle = `M${mag.toFixed(1)} – ${feature.properties.place ?? 'Unknown'}`;
+    entity._ewMeta  = formatShortDate(feature.properties.time) + ' UTC';
+    globeState.entities.earthquakes.push(entity);
+  });
+}
+
+function renderFlightsOnGlobe() {
+  if (!globeState.viewer) return;
+  clearGlobeLayer('flights');
+  const visible = state.layers.flights !== false;
+  (state.rawData.flights ?? []).forEach(feature => {
+    const [lng, lat] = feature.geometry.coordinates;
+    const p = feature.properties;
+    const alt = Math.max(500, p.altM ?? 10000);
+    const altFt = p.altM != null ? `${Math.round(p.altM / 0.3048 / 100) * 100} ft` : '--';
+    const spd   = p.speedMs != null ? `${Math.round(p.speedMs * 1.94)} kn` : '--';
+    const entity = globeState.viewer.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lng, lat, alt),
+      show: visible,
+      point: {
+        pixelSize: 4,
+        color: Cesium.Color.fromCssColorString('#67d4ff'),
+        outlineColor: Cesium.Color.BLACK.withAlpha(0.5),
+        outlineWidth: 1,
+        heightReference: Cesium.HeightReference.NONE,
+      },
+    });
+    entity._ewTitle = p.callsign || p.icao || 'Unknown';
+    entity._ewMeta  = `${p.country || ''} · ${altFt} · ${spd}`.replace(/^·\s*/, '');
+    globeState.entities.flights.push(entity);
+  });
+}
+
+function upsertShipOnGlobe(ship) {
+  if (!globeState.viewer || ship.lat == null || ship.lon == null) return;
+  const visible = state.layers.ships !== false;
+  const pos = Cesium.Cartesian3.fromDegrees(ship.lon, ship.lat, 5);
+  const existing = globeState.entities.ships.get(ship.mmsi);
+  if (existing) {
+    existing.position  = new Cesium.ConstantPositionProperty(pos);
+    existing._ewTitle  = ship.name || String(ship.mmsi) || 'Ship';
+    existing._ewMeta   = shipMeta(ship);
+  } else {
+    const entity = globeState.viewer.entities.add({
+      position: pos,
+      show: visible,
+      point: {
+        pixelSize: 5,
+        color: Cesium.Color.fromCssColorString('#3fb950'),
+        outlineColor: Cesium.Color.BLACK.withAlpha(0.5),
+        outlineWidth: 1,
+      },
+    });
+    entity._ewTitle = ship.name || String(ship.mmsi) || 'Ship';
+    entity._ewMeta  = shipMeta(ship);
+    globeState.entities.ships.set(ship.mmsi, entity);
+  }
+}
+
+// Sync globe layer visibility when a layer toggle button is clicked.
+// This runs as a second listener alongside the existing Leaflet handler.
+document.querySelectorAll('[data-layer]').forEach((button) => {
+  button.addEventListener('click', () => {
+    if (!globeState.active || !globeState.initialized) return;
+    const layer   = button.dataset.layer;
+    const visible = state.layers[layer]; // already flipped by the first listener
+
+    if (layer === 'earthquakes') {
+      globeState.entities.earthquakes.forEach(e => { e.show = visible; });
+    } else if (layer === 'flights') {
+      globeState.entities.flights.forEach(e => { e.show = visible; });
+    } else if (layer === 'ships') {
+      globeState.entities.ships.forEach(entity => { entity.show = visible; });
+    }
+  });
+});
+
+async function activateGlobe() {
+  document.getElementById('map').style.display = 'none';
+  document.getElementById('cesium-container').style.display = 'block';
+  document.getElementById('view-map-btn').classList.remove('is-active');
+  document.getElementById('view-globe-btn').classList.add('is-active');
+  const modeLabel = document.getElementById('map-mode-label');
+  if (modeLabel) modeLabel.textContent = 'Globe 3D';
+  globeState.active = true;
+
+  if (!globeState.initialized) {
+    await initGlobe();
+  }
+
+  if (globeState.viewer) {
+    renderEarthquakesOnGlobe();
+    renderFlightsOnGlobe();
+    state.ships.forEach(entry => upsertShipOnGlobe(entry.ship));
+  }
+}
+
+function deactivateGlobe() {
+  document.getElementById('map').style.display = '';
+  document.getElementById('cesium-container').style.display = 'none';
+  document.getElementById('view-map-btn').classList.add('is-active');
+  document.getElementById('view-globe-btn').classList.remove('is-active');
+  const modeLabel = document.getElementById('map-mode-label');
+  if (modeLabel) modeLabel.textContent = 'Wrapped';
+  globeState.active = false;
+  if (globeState.tooltip) hideGlobeTooltip(globeState.tooltip);
+}
+
+document.getElementById('view-globe-btn').addEventListener('click', () => {
+  activateGlobe().catch(err => reportError('globe:activate', err));
+});
+document.getElementById('view-map-btn').addEventListener('click', deactivateGlobe);

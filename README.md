@@ -99,6 +99,7 @@ Optional (enables additional layers):
 ```env
 WINDY_WEBCAMS_KEY=your_key            # free at api.windy.com — select Webcams API
 WAQI_TOKEN=your_token                 # free at aqicn.org/data-platform/token/
+VITE_CESIUM_ION_TOKEN=your_token      # free at ion.cesium.com — enables 3D Globe view with World Terrain
 ```
 
 ### 4. Configure Grafana alerting
@@ -173,7 +174,39 @@ GET /api/v1/lightning/potential           Open-Meteo CAPE grid (1h cache)
 GET /api/v1/external/iss                  ISS position via wheretheiss.at
 GET /api/v1/external/noaa-alerts          NOAA severe weather alerts
 GET /api/v1/external/co2                  NOAA Mauna Loa CO₂ (6h cache)
+GET /api/config                           Frontend config (Cesium Ion token)
 ```
+
+---
+
+## Globe View (3D)
+
+The **Globe** button in the map toolbar switches from the Leaflet 2D map to an interactive 3D Earth powered by [CesiumJS](https://cesium.com/) with Cesium World Terrain.
+
+### Layers on the globe
+
+| Layer | Visual | Tooltip on hover |
+|---|---|---|
+| 🔴 Earthquakes | Colour-coded ellipse scaled by magnitude | `M5.2 – Southern Japan · Jun 10, 14:22 UTC` |
+| ✈️ Flights | Cyan point at actual altitude | `SWA1234 · USA · 35,000 ft · 452 kn` |
+| 🚢 Ships | Green point at sea level, live WebSocket | `MAERSK TIANJIN · Rotterdam → Shanghai · 14.5 kn` |
+
+### How it works
+
+- CesiumJS 1.122 is loaded from the jsDelivr CDN (no local build step needed).
+- On first click the viewer lazy-initialises: fetches the Ion token from `GET /api/config`, loads World Terrain, and renders current data.
+- The **same layer toggle chips** that control the 2D map also show/hide entities on the globe (`entity.show`).
+- Ships update in real time via the existing `/ws/ships` WebSocket — no second connection needed.
+- The Ion token flows `VITE_CESIUM_ION_TOKEN (.env) → docker-compose → Fastify env → GET /api/config → JS` and is never hard-coded in frontend assets.
+
+### Setup
+
+1. Create a free account at [ion.cesium.com](https://ion.cesium.com) and copy your default access token.
+2. Add to `.env`:
+   ```env
+   VITE_CESIUM_ION_TOKEN=your_token_here
+   ```
+3. Rebuild `web-next`: `docker compose up -d --build web-next`
 
 ---
 
@@ -292,8 +325,10 @@ docker compose ps
 ## Open TODOs
 
 - [ ] Build Grafana dashboards with TimescaleDB data
-- [ ] Add Watchtower for automatic container updates
+- [x] Add Watchtower for automatic container updates
+- [x] 3D Globe view (CesiumJS, World Terrain, earthquakes / flights / ships)
 - [ ] Grafana alerts for new layers (Aurora, Internet Outages)
 - [ ] History slider — browse 30 days of events (deferred, needs more data)
 - [ ] Revisit map renderer if Leaflet wrap/scaling remains a problem
 - [ ] Expand radiation coverage when more Safecast stations come online
+- [ ] Globe: natural events, volcanoes, aurora layers
