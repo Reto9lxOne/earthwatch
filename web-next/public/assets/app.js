@@ -1186,6 +1186,23 @@ const globeState = {
   },
 };
 
+// Canvas-rendered emoji billboards, cached per emoji+size
+const _emojiImgCache = new Map();
+function emojiImage(emoji, size) {
+  const key = `${emoji}:${size}`;
+  if (_emojiImgCache.has(key)) return _emojiImgCache.get(key);
+  const canvas = document.createElement('canvas');
+  canvas.width  = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.font         = `${Math.round(size * 0.76)}px sans-serif`;
+  ctx.textAlign    = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, size / 2, size / 2 + 1);
+  _emojiImgCache.set(key, canvas);
+  return canvas;
+}
+
 function eqColorCesium(mag) {
   if (mag >= 7) return Cesium.Color.fromCssColorString('#ff6b6b');
   if (mag >= 6) return Cesium.Color.fromCssColorString('#ff8f5c');
@@ -1271,7 +1288,7 @@ async function initGlobe() {
     viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#071822');
 
     viewer.camera.setView({
-      destination: Cesium.Cartesian3.fromDegrees(8, 20, 18000000),
+      destination: Cesium.Cartesian3.fromDegrees(8, 20, 14000000),
     });
 
     const tooltip = createGlobeTooltip();
@@ -1303,20 +1320,29 @@ function renderEarthquakesOnGlobe() {
   const visible = state.layers.earthquakes !== false;
   (state.rawData.earthquakes ?? []).forEach(feature => {
     const [lng, lat] = feature.geometry.coordinates;
-    const mag = feature.properties.magnitude ?? 0;
+    const mag   = feature.properties.magnitude ?? 0;
     const color = eqColorCesium(mag);
     const radius = Math.max(50000, mag * 95000);
+    // ellipse shows the impact radius; centre point is always screen-visible
     const entity = globeState.viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(lng, lat),
       show: visible,
       ellipse: {
         semiMinorAxis: radius,
         semiMajorAxis: radius,
-        material: color.withAlpha(0.2),
+        material: color.withAlpha(0.18),
         outline: true,
         outlineColor: color.withAlpha(0.85),
         outlineWidth: 1.5,
         height: 0,
+      },
+      point: {
+        pixelSize: Math.max(5, Math.min(12, mag * 1.8)),
+        color,
+        outlineColor: Cesium.Color.BLACK.withAlpha(0.55),
+        outlineWidth: 1,
+        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
     });
     entity._ewTitle = `M${mag.toFixed(1)} – ${feature.properties.place ?? 'Unknown'}`;
@@ -1331,19 +1357,19 @@ function renderFlightsOnGlobe() {
   const visible = state.layers.flights !== false;
   (state.rawData.flights ?? []).forEach(feature => {
     const [lng, lat] = feature.geometry.coordinates;
-    const p = feature.properties;
-    const alt = Math.max(500, p.altM ?? 10000);
-    const altFt = p.altM != null ? `${Math.round(p.altM / 0.3048 / 100) * 100} ft` : '--';
-    const spd   = p.speedMs != null ? `${Math.round(p.speedMs * 1.94)} kn` : '--';
+    const p      = feature.properties;
+    const alt    = Math.max(500, p.altM ?? 10000);
+    const altFt  = p.altM != null ? `${Math.round(p.altM / 0.3048 / 100) * 100} ft` : '--';
+    const spd    = p.speedMs != null ? `${Math.round(p.speedMs * 1.94)} kn` : '--';
     const entity = globeState.viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(lng, lat, alt),
       show: visible,
-      point: {
-        pixelSize: 4,
-        color: Cesium.Color.fromCssColorString('#67d4ff'),
-        outlineColor: Cesium.Color.BLACK.withAlpha(0.5),
-        outlineWidth: 1,
+      billboard: {
+        image: emojiImage('✈️', 26),
+        scale: 1.0,
+        verticalOrigin: Cesium.VerticalOrigin.CENTER,
         heightReference: Cesium.HeightReference.NONE,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
     });
     entity._ewTitle = p.callsign || p.icao || 'Unknown';
@@ -1355,21 +1381,22 @@ function renderFlightsOnGlobe() {
 function upsertShipOnGlobe(ship) {
   if (!globeState.viewer || ship.lat == null || ship.lon == null) return;
   const visible = state.layers.ships !== false;
-  const pos = Cesium.Cartesian3.fromDegrees(ship.lon, ship.lat, 5);
+  const pos      = Cesium.Cartesian3.fromDegrees(ship.lon, ship.lat);
   const existing = globeState.entities.ships.get(ship.mmsi);
   if (existing) {
-    existing.position  = new Cesium.ConstantPositionProperty(pos);
-    existing._ewTitle  = ship.name || String(ship.mmsi) || 'Ship';
-    existing._ewMeta   = shipMeta(ship);
+    existing.position = new Cesium.ConstantPositionProperty(pos);
+    existing._ewTitle = ship.name || String(ship.mmsi) || 'Ship';
+    existing._ewMeta  = shipMeta(ship);
   } else {
     const entity = globeState.viewer.entities.add({
       position: pos,
       show: visible,
-      point: {
-        pixelSize: 5,
-        color: Cesium.Color.fromCssColorString('#3fb950'),
-        outlineColor: Cesium.Color.BLACK.withAlpha(0.5),
-        outlineWidth: 1,
+      billboard: {
+        image: emojiImage('🚢', 22),
+        scale: 1.0,
+        verticalOrigin: Cesium.VerticalOrigin.CENTER,
+        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+        disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
     });
     entity._ewTitle = ship.name || String(ship.mmsi) || 'Ship';
@@ -1379,7 +1406,7 @@ function upsertShipOnGlobe(ship) {
 }
 
 // Sync globe layer visibility when a layer toggle button is clicked.
-// This runs as a second listener alongside the existing Leaflet handler.
+// Runs as a second listener alongside the existing Leaflet handler.
 document.querySelectorAll('[data-layer]').forEach((button) => {
   button.addEventListener('click', () => {
     if (!globeState.active || !globeState.initialized) return;
