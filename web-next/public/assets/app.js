@@ -1227,6 +1227,7 @@ const globeState = {
     stations: [],
   },
   satTimer: null,
+  satLiveTimer: null,
 };
 
 // Canvas emoji images for billboards, cached per emoji+size
@@ -1513,6 +1514,7 @@ function renderSatGroupOnGlobe(group) {
     });
     entity._ewTitle = sat.name;
     entity._ewMeta  = `Alt: ${pos.alt} km`;
+    entity._sat     = sat;
     globeState.satEntities[group].push(entity);
   });
 }
@@ -1540,6 +1542,28 @@ function refreshGlobeSatellites() {
     if (btn && btn.classList.contains('is-active')) {
       renderSatGroupOnGlobe(group);
     }
+  });
+}
+
+// Live 1-second satellite position update (no entity rebuild)
+function liveUpdateGlobeSats() {
+  if (!globeState.active || !globeState.initialized) return;
+  const now = new Date();
+  Object.keys(globeState.satEntities).forEach(group => {
+    globeState.satEntities[group].forEach(entity => {
+      const sat = entity._sat;
+      if (!sat) return;
+      const pos = satPosition(sat.tle1, sat.tle2, now);
+      if (!pos || pos.lat < -85 || pos.lat > 85) {
+        entity.show = false;
+        return;
+      }
+      entity.show = true;
+      entity.position = new Cesium.ConstantPositionProperty(
+        Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.alt * 1000)
+      );
+      entity._ewMeta = `Alt: ${pos.alt} km`;
+    });
   });
 }
 
@@ -1605,7 +1629,8 @@ async function activateGlobe() {
     });
 
     // Keep satellite positions fresh while globe is open
-    globeState.satTimer = setInterval(refreshGlobeSatellites, 30000);
+    globeState.satTimer     = setInterval(refreshGlobeSatellites, 30000);
+    globeState.satLiveTimer = setInterval(liveUpdateGlobeSats, 1000);
   }
 }
 
@@ -1618,7 +1643,8 @@ function deactivateGlobe() {
   if (modeLabel) modeLabel.textContent = 'Wrapped';
   globeState.active = false;
   if (globeState.tooltip) hideGlobeTooltip(globeState.tooltip);
-  if (globeState.satTimer) { clearInterval(globeState.satTimer); globeState.satTimer = null; }
+  if (globeState.satTimer)     { clearInterval(globeState.satTimer);     globeState.satTimer = null; }
+  if (globeState.satLiveTimer) { clearInterval(globeState.satLiveTimer); globeState.satLiveTimer = null; }
 }
 
 document.getElementById('view-globe-btn').addEventListener('click', () => {
