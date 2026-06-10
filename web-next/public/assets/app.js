@@ -162,6 +162,10 @@ L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
   updateWhenIdle: true,
 }).addTo(map);
 
+// Custom pane below overlay pane so terminator sits under markers
+map.createPane('terminatorPane');
+map.getPane('terminatorPane').style.zIndex = 300;
+
 const popup = L.popup({
   closeButton: false,
   offset: [0, -8],
@@ -1631,6 +1635,11 @@ async function activateGlobe() {
     // Keep satellite positions fresh while globe is open
     globeState.satTimer     = setInterval(refreshGlobeSatellites, 30000);
     globeState.satLiveTimer = setInterval(liveUpdateGlobeSats, 1000);
+
+    // Sync day/night lighting if already enabled
+    if (document.getElementById('day-night-btn')?.classList.contains('is-active')) {
+      applyDayNightToGlobe(true);
+    }
   }
 }
 
@@ -1651,3 +1660,42 @@ document.getElementById('view-globe-btn').addEventListener('click', () => {
   activateGlobe().catch(err => reportError('globe:activate', err));
 });
 document.getElementById('view-map-btn').addEventListener('click', deactivateGlobe);
+
+// ── Day / Night overlay ──────────────────────────────────────────────────────
+let _terminator = null;
+let _terminatorTimer = null;
+
+function applyDayNightToGlobe(active) {
+  if (!globeState.viewer) return;
+  globeState.viewer.scene.globe.enableLighting = active;
+  if (active) {
+    globeState.viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date());
+    globeState.viewer.clock.clockStep   = Cesium.ClockStep.SYSTEM_CLOCK;
+  }
+}
+
+function enableDayNight() {
+  if (!_terminator) {
+    _terminator = L.terminator({
+      pane: 'terminatorPane',
+      fillColor: '#001030',
+      fillOpacity: 0.32,
+      color: 'rgba(220,220,120,0.45)',
+      weight: 1.2,
+      interactive: false,
+    }).addTo(map);
+  }
+  _terminatorTimer = setInterval(() => _terminator?.setTime(new Date()), 60000);
+  applyDayNightToGlobe(true);
+}
+
+function disableDayNight() {
+  if (_terminator) { _terminator.remove(); _terminator = null; }
+  if (_terminatorTimer) { clearInterval(_terminatorTimer); _terminatorTimer = null; }
+  applyDayNightToGlobe(false);
+}
+
+document.getElementById('day-night-btn').addEventListener('click', () => {
+  const active = document.getElementById('day-night-btn').classList.toggle('is-active');
+  if (active) enableDayNight(); else disableDayNight();
+});

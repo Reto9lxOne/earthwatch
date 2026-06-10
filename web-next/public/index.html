@@ -21,7 +21,7 @@
     crossorigin=""
   >
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cesium@1.122.0/Build/Cesium/Widgets/widgets.css">
-  <link rel="stylesheet" href="/assets/app.css?v=20260610j">
+  <link rel="stylesheet" href="/assets/app.css?v=20260610k">
 </head>
 <body>
   <div class="page-shell">
@@ -145,6 +145,7 @@
               <button class="layer-chip" data-layer="webcams">Webcams</button>
               <button class="layer-chip sat-chip" data-satellite="starlink">Starlink</button>
               <button class="layer-chip sat-chip" data-satellite="weather">Weather Sats</button>
+              <button class="layer-chip" id="day-night-btn">Day / Night</button>
             </div>
             <div class="view-switcher">
               <button class="view-btn is-active" id="view-map-btn">Map</button>
@@ -256,9 +257,10 @@
     crossorigin=""
   ></script>
   <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@joergdietrich/leaflet.terminator@1.0.0/L.Terminator.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/satellite.js@4.1.4/dist/satellite.min.js"></script>
   <script>window.CESIUM_BASE_URL = 'https://cdn.jsdelivr.net/npm/cesium@1.122.0/Build/Cesium/';</script>
   <script src="https://cdn.jsdelivr.net/npm/cesium@1.122.0/Build/Cesium/Cesium.js"></script>
-  <script src="/assets/app.js?v=20260610j" type="module"></script>
+  <script src="/assets/app.js?v=20260610k" type="module"></script>
 </body>
 </html>
