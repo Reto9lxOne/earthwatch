@@ -1245,7 +1245,6 @@ const globeState = {
     stations: [],
   },
   satTimer: null,
-  satLiveTimer: null,
 };
 
 // Canvas emoji images for billboards, cached per emoji+size
@@ -1328,9 +1327,10 @@ function attachGlobeHover(viewer, tooltip) {
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
 }
 
-function applyBasemapToGlobe(type) {
-  if (!globeState.viewer) return;
-  const layers = globeState.viewer.imageryLayers;
+function applyBasemapToGlobe(type, vwr) {
+  const v = vwr || globeState.viewer;
+  if (!v) return;
+  const layers = v.imageryLayers;
   layers.removeAll();
   if (type === 'satellite') {
     layers.addImageryProvider(new Cesium.UrlTemplateImageryProvider({
@@ -1384,8 +1384,14 @@ async function initGlobe() {
     viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString('#071822');
 
     // Replace default Ion imagery with current 2D basemap
+    applyBasemapToGlobe(_currentBasemap, viewer);
     globeState.viewer = viewer;
-    applyBasemapToGlobe(_currentBasemap);
+
+    viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date());
+    viewer.clock.multiplier = 1;
+    viewer.clock.clockRange = Cesium.ClockRange.UNBOUNDED;
+    viewer.scene.requestRenderMode = true;
+    viewer.scene.maximumRenderTimeChange = 0.1;
 
     viewer.camera.setView({
       destination: Cesium.Cartesian3.fromDegrees(8, 20, 14000000),
@@ -1515,6 +1521,24 @@ function clearGlobeSatGroup(group) {
   globeState.satEntities[group] = [];
 }
 
+function buildSampledPosition(sat, now) {
+  const sp = new Cesium.SampledPositionProperty();
+  sp.setInterpolationOptions({
+    interpolationAlgorithm: Cesium.LagrangePolynomialApproximation,
+    interpolationDegree: 5,
+  });
+  for (let i = -5; i <= 10; i++) {
+    const t = new Date(now.getTime() + i * 30000);
+    const pos = satPosition(sat.tle1, sat.tle2, t);
+    if (!pos || pos.lat < -85 || pos.lat > 85) continue;
+    sp.addSample(
+      Cesium.JulianDate.fromDate(t),
+      Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.alt * 1000)
+    );
+  }
+  return sp;
+}
+
 function renderSatGroupOnGlobe(group) {
   if (!globeState.viewer) return;
   clearGlobeSatGroup(group);
@@ -1522,18 +1546,19 @@ function renderSatGroupOnGlobe(group) {
   const g = SAT_GROUPS[group];
   if (!g.data) return;
 
-  const date      = new Date();
+  const now       = new Date();
   const isStation = group === 'stations';
   const color     = Cesium.Color.fromCssColorString(g.color);
   const size      = group === 'starlink' ? 3 : 4;
 
   g.data.forEach(sat => {
-    const pos = satPosition(sat.tle1, sat.tle2, date);
+    const pos = satPosition(sat.tle1, sat.tle2, now);
     if (!pos || pos.lat < -85 || pos.lat > 85) return;
 
-    const cesPos = Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.alt * 1000);
+    const sampledPos = buildSampledPosition(sat, now);
     const entity = globeState.viewer.entities.add({
-      position: cesPos,
+      position: sampledPos,
+      orientation: new Cesium.VelocityOrientationProperty(sampledPos),
       ...(isStation
         ? {
             billboard: {
@@ -1576,36 +1601,34 @@ function waitAndRenderSatGroup(group) {
   }
 }
 
-// Refresh satellite positions on the globe (same cadence as the 2D map, 30s)
+// Extend SampledPositionProperty with new future samples (called every 30s)
+function extendGlobeSatSamples(group) {
+  if (!globeState.viewer) return;
+  const now = new Date();
+  globeState.satEntities[group].forEach(entity => {
+    const sat = entity._sat;
+    if (!sat || !entity.position) return;
+    const sp = entity.position;
+    for (let i = 1; i <= 10; i++) {
+      const t = new Date(now.getTime() + i * 30000);
+      const pos = satPosition(sat.tle1, sat.tle2, t);
+      if (!pos || pos.lat < -85 || pos.lat > 85) continue;
+      sp.addSample(
+        Cesium.JulianDate.fromDate(t),
+        Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.alt * 1000)
+      );
+    }
+  });
+}
+
+// Called every 30s — adds future samples instead of rebuilding entities
 function refreshGlobeSatellites() {
   if (!globeState.active || !globeState.initialized) return;
   Object.keys(SAT_GROUPS).forEach(group => {
     const btn = document.querySelector(`[data-satellite="${group}"]`);
     if (btn && btn.classList.contains('is-active')) {
-      renderSatGroupOnGlobe(group);
+      extendGlobeSatSamples(group);
     }
-  });
-}
-
-// Live 1-second satellite position update (no entity rebuild)
-function liveUpdateGlobeSats() {
-  if (!globeState.active || !globeState.initialized) return;
-  const now = new Date();
-  Object.keys(globeState.satEntities).forEach(group => {
-    globeState.satEntities[group].forEach(entity => {
-      const sat = entity._sat;
-      if (!sat) return;
-      const pos = satPosition(sat.tle1, sat.tle2, now);
-      if (!pos || pos.lat < -85 || pos.lat > 85) {
-        entity.show = false;
-        return;
-      }
-      entity.show = true;
-      entity.position = new Cesium.ConstantPositionProperty(
-        Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.alt * 1000)
-      );
-      entity._ewMeta = `Alt: ${pos.alt} km`;
-    });
   });
 }
 
@@ -1647,6 +1670,7 @@ document.querySelectorAll('[data-satellite]').forEach((btn) => {
 async function activateGlobe() {
   document.getElementById('map').style.display = 'none';
   document.getElementById('cesium-container').style.display = 'block';
+  hideLoader();
   document.getElementById('view-map-btn').classList.remove('is-active');
   document.getElementById('view-globe-btn').classList.add('is-active');
   const modeLabel = document.getElementById('map-mode-label');
@@ -1670,9 +1694,8 @@ async function activateGlobe() {
       }
     });
 
-    // Keep satellite positions fresh while globe is open
-    globeState.satTimer     = setInterval(refreshGlobeSatellites, 30000);
-    globeState.satLiveTimer = setInterval(liveUpdateGlobeSats, 1000);
+    // Keep satellite position samples fresh while globe is open
+    globeState.satTimer = setInterval(refreshGlobeSatellites, 30000);
 
     // Sync day/night lighting if already enabled
     if (document.getElementById('day-night-btn')?.classList.contains('is-active')) {
@@ -1690,8 +1713,7 @@ function deactivateGlobe() {
   if (modeLabel) modeLabel.textContent = 'Wrapped';
   globeState.active = false;
   if (globeState.tooltip) hideGlobeTooltip(globeState.tooltip);
-  if (globeState.satTimer)     { clearInterval(globeState.satTimer);     globeState.satTimer = null; }
-  if (globeState.satLiveTimer) { clearInterval(globeState.satLiveTimer); globeState.satLiveTimer = null; }
+  if (globeState.satTimer) { clearInterval(globeState.satTimer); globeState.satTimer = null; }
 }
 
 document.getElementById('view-globe-btn').addEventListener('click', () => {
