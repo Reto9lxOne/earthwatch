@@ -1184,9 +1184,15 @@ const globeState = {
     flights: [],
     ships: new Map(),
   },
+  satEntities: {
+    starlink: [],
+    weather:  [],
+    stations: [],
+  },
+  satTimer: null,
 };
 
-// Canvas-rendered emoji billboards, cached per emoji+size
+// Canvas emoji images for billboards, cached per emoji+size
 const _emojiImgCache = new Map();
 function emojiImage(emoji, size) {
   const key = `${emoji}:${size}`;
@@ -1314,6 +1320,8 @@ function clearGlobeLayer(key) {
   }
 }
 
+// ── Event layers ─────────────────────────────────────────
+
 function renderEarthquakesOnGlobe() {
   if (!globeState.viewer) return;
   clearGlobeLayer('earthquakes');
@@ -1323,7 +1331,6 @@ function renderEarthquakesOnGlobe() {
     const mag   = feature.properties.magnitude ?? 0;
     const color = eqColorCesium(mag);
     const radius = Math.max(50000, mag * 95000);
-    // ellipse shows the impact radius; centre point is always screen-visible
     const entity = globeState.viewer.entities.add({
       position: Cesium.Cartesian3.fromDegrees(lng, lat),
       show: visible,
@@ -1365,8 +1372,7 @@ function renderFlightsOnGlobe() {
       position: Cesium.Cartesian3.fromDegrees(lng, lat, alt),
       show: visible,
       billboard: {
-        image: emojiImage('✈️', 26),
-        scale: 1.0,
+        image: emojiImage('✈️', 32),
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
         heightReference: Cesium.HeightReference.NONE,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -1392,8 +1398,7 @@ function upsertShipOnGlobe(ship) {
       position: pos,
       show: visible,
       billboard: {
-        image: emojiImage('🚢', 22),
-        scale: 1.0,
+        image: emojiImage('🚢', 28),
         verticalOrigin: Cesium.VerticalOrigin.CENTER,
         heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -1405,13 +1410,93 @@ function upsertShipOnGlobe(ship) {
   }
 }
 
-// Sync globe layer visibility when a layer toggle button is clicked.
-// Runs as a second listener alongside the existing Leaflet handler.
+// ── Satellite layers ──────────────────────────────────────
+
+function clearGlobeSatGroup(group) {
+  if (!globeState.viewer) return;
+  globeState.satEntities[group].forEach(e => globeState.viewer.entities.remove(e));
+  globeState.satEntities[group] = [];
+}
+
+function renderSatGroupOnGlobe(group) {
+  if (!globeState.viewer) return;
+  clearGlobeSatGroup(group);
+
+  const g = SAT_GROUPS[group];
+  if (!g.data) return;
+
+  const date      = new Date();
+  const isStation = group === 'stations';
+  const color     = Cesium.Color.fromCssColorString(g.color);
+  const size      = group === 'starlink' ? 3 : 4;
+
+  g.data.forEach(sat => {
+    const pos = satPosition(sat.tle1, sat.tle2, date);
+    if (!pos || pos.lat < -85 || pos.lat > 85) return;
+
+    const cesPos = Cesium.Cartesian3.fromDegrees(pos.lon, pos.lat, pos.alt * 1000);
+    const entity = globeState.viewer.entities.add({
+      position: cesPos,
+      ...(isStation
+        ? {
+            billboard: {
+              image: emojiImage('🛰️', 32),
+              verticalOrigin: Cesium.VerticalOrigin.CENTER,
+              heightReference: Cesium.HeightReference.NONE,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            },
+          }
+        : {
+            point: {
+              pixelSize: size,
+              color,
+              outlineColor: Cesium.Color.BLACK.withAlpha(0.3),
+              outlineWidth: 1,
+              heightReference: Cesium.HeightReference.NONE,
+              disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            },
+          }),
+    });
+    entity._ewTitle = sat.name;
+    entity._ewMeta  = `Alt: ${pos.alt} km`;
+    globeState.satEntities[group].push(entity);
+  });
+}
+
+// Called from the [data-satellite] second listener once TLE data is available
+function waitAndRenderSatGroup(group) {
+  const g = SAT_GROUPS[group];
+  if (g.data) {
+    renderSatGroupOnGlobe(group);
+  } else {
+    const poll = setInterval(() => {
+      if (g.data) {
+        clearInterval(poll);
+        renderSatGroupOnGlobe(group);
+      }
+    }, 250);
+  }
+}
+
+// Refresh satellite positions on the globe (same cadence as the 2D map, 30s)
+function refreshGlobeSatellites() {
+  if (!globeState.active || !globeState.initialized) return;
+  Object.keys(SAT_GROUPS).forEach(group => {
+    const btn = document.querySelector(`[data-satellite="${group}"]`);
+    if (btn && btn.classList.contains('is-active')) {
+      renderSatGroupOnGlobe(group);
+    }
+  });
+}
+
+// ── Layer toggle hooks ────────────────────────────────────
+
+// [data-layer] — second listener, runs after the Leaflet one (state already flipped)
 document.querySelectorAll('[data-layer]').forEach((button) => {
   button.addEventListener('click', () => {
     if (!globeState.active || !globeState.initialized) return;
     const layer   = button.dataset.layer;
-    const visible = state.layers[layer]; // already flipped by the first listener
+    const visible = state.layers[layer];
 
     if (layer === 'earthquakes') {
       globeState.entities.earthquakes.forEach(e => { e.show = visible; });
@@ -1422,6 +1507,22 @@ document.querySelectorAll('[data-layer]').forEach((button) => {
     }
   });
 });
+
+// [data-satellite] — second listener alongside the existing Leaflet handler
+document.querySelectorAll('[data-satellite]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    if (!globeState.active || !globeState.initialized) return;
+    const group  = btn.dataset.satellite;
+    const active = btn.classList.contains('is-active'); // already toggled by first listener
+    if (active) {
+      waitAndRenderSatGroup(group);
+    } else {
+      clearGlobeSatGroup(group);
+    }
+  });
+});
+
+// ── Activate / deactivate ─────────────────────────────────
 
 async function activateGlobe() {
   document.getElementById('map').style.display = 'none';
@@ -1440,6 +1541,17 @@ async function activateGlobe() {
     renderEarthquakesOnGlobe();
     renderFlightsOnGlobe();
     state.ships.forEach(entry => upsertShipOnGlobe(entry.ship));
+
+    // Render any satellite groups that are already active on the 2D map
+    Object.keys(SAT_GROUPS).forEach(group => {
+      const btn = document.querySelector(`[data-satellite="${group}"]`);
+      if (btn && btn.classList.contains('is-active')) {
+        waitAndRenderSatGroup(group);
+      }
+    });
+
+    // Keep satellite positions fresh while globe is open
+    globeState.satTimer = setInterval(refreshGlobeSatellites, 30000);
   }
 }
 
@@ -1452,6 +1564,7 @@ function deactivateGlobe() {
   if (modeLabel) modeLabel.textContent = 'Wrapped';
   globeState.active = false;
   if (globeState.tooltip) hideGlobeTooltip(globeState.tooltip);
+  if (globeState.satTimer) { clearInterval(globeState.satTimer); globeState.satTimer = null; }
 }
 
 document.getElementById('view-globe-btn').addEventListener('click', () => {
