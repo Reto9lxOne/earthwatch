@@ -17,7 +17,7 @@ contactPoints:
             🕐 {{ .StartsAt.UTC.Format "02 Jan 2006 15:04 UTC" }}
             {{ end }}
             🌍 https://earthwatch.9lx.app
-        disableResolveMessage: false
+        disableResolveMessage: true
 
 policies:
   - orgId: 1
